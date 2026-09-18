@@ -94,8 +94,8 @@ The repo is currently almost empty. That makes this a greenfield foundation plan
 
 ## Key Technical Decisions
 
-- Public/private direction: the public repo should be standalone and reusable; the private repo should import the public repo for real host definitions. This avoids committed private inputs, private lock entries, and public repo evaluation failures.
-- Host identity: public host outputs use sanitized aliases such as `example-aarch64-darwin`; real hostnames and usernames belong in the private repo unless intentionally non-sensitive.
+- Public/private direction: the public repo should be standalone and reusable; the existing sibling private repo `nixy-priv` should import the public repo for real host definitions. This avoids committed private inputs, private lock entries, and public repo evaluation failures.
+- Host identity: public host outputs use sanitized aliases such as `example-aarch64-darwin`; real hostnames and usernames belong in `nixy-priv` unless intentionally non-sensitive.
 - Nix ownership: milestone 1 uses explicit `nix.enable = false` in a Determinate boundary module. The Determinate nix-darwin module can be considered later if custom Determinate settings are needed.
 - Platform: v1 is Apple Silicon only (`aarch64-darwin`). Intel is an unsupported follow-up because current Determinate Nix support has dropped `x86_64-darwin` in recent releases.
 - Homebrew: use `nix-homebrew` for Homebrew/tap installation and nix-darwin `homebrew.*` for brews/casks. Start with non-destructive activation behavior.
@@ -112,19 +112,20 @@ The repo is currently almost empty. That makes this a greenfield foundation plan
 - Private overlay mechanism: use the existing private repo `nixy-priv` (`https://github.com/robsdudeson/nixy-priv`), checked out as a sibling to this repo. It should import the public repo as the safest v1 pattern; document optional local override patterns only as future/advanced usage.
 - First architecture: support `aarch64-darwin` only in v1.
 - User creation: do not create/manage macOS users in milestone 1; require an existing primary user.
+- First switch path: public `example-aarch64-darwin` is build/evaluation-safe; a real `switch` must use an existing macOS username supplied by `nixy-priv` or a local ignored override.
 - Homebrew cleanup: no destructive cleanup in early profiles.
 - Secrets: no secret wiring in milestone 1; document boundaries and defer tool selection.
 
 ### Deferred to Implementation
 
-- Exact example username and host alias: use clearly fake defaults unless the user supplies private values during implementation.
+- Exact example username and host alias: use clearly fake defaults for public evaluation; a real first switch must use `nixy-priv` or a local ignored override with the actual existing macOS username.
 - Exact package/app inventory: start with a tiny public baseline, then classify inventory items as base/developer/gui/private/manual.
 - Formatter choice: pick one Nix formatter during implementation, but do not block minimal rebuild on advanced linting.
 - Whether to adopt Determinate's nix-darwin module: defer until the base `nix.enable = false` path is working or custom Determinate settings are needed.
 
 ---
 
-## Output Structure
+## Target End-State Structure
 
 ```text
 .
@@ -161,7 +162,7 @@ The repo is currently almost empty. That makes this a greenfield foundation plan
     └── example.nix
 ```
 
-This tree is the intended starting shape. The implementer may consolidate files if implementation shows a simpler structure is clearer, but should preserve the public/private, host/profile/module, and docs boundaries.
+This tree is the target shape after all implementation units. The initial U1-U2 proof should stay much smaller: `flake.nix`, `flake.lock`, `hosts/example-aarch64-darwin/default.nix`, `profiles/minimal.nix`, `modules/darwin/determinate.nix`, and minimal docs. The implementer may consolidate files if implementation shows a simpler structure is clearer, but should preserve the public/private, host/profile/module, and docs boundaries.
 
 ---
 
@@ -227,7 +228,7 @@ The public repo should not need the private repo to evaluate. Real private host 
 **Verification:**
 - The public flake evaluates with only public files.
 - The host output is Apple Silicon only.
-- No committed file references a private host, private repository, token, email, or secret path.
+- No committed file references private hostnames, private flake inputs, private lock entries, secret paths, tokens, real emails, or private repo contents. Public docs may name `nixy-priv` because the user explicitly identified that repo as the intended private overlay.
 
 ---
 
@@ -266,9 +267,13 @@ The public repo should not need the private repo to evaluate. Real private host 
 
 ---
 
-- [ ] U3. **Wire Home Manager for an existing example user**
+### Milestone M1: Minimal Darwin proof gate
 
-**Goal:** Manage user-level config through Home Manager as part of nix-darwin activation while assuming the macOS user already exists.
+Stop after U1-U2 until the public example host can run flake evaluation and host build validation with `nix.enable = false`. A real switch may happen only through `nixy-priv` or a local ignored override that supplies an existing macOS username. Do not add Home Manager, Homebrew, workstation profiles, or macOS defaults until this gate passes.
+
+- [ ] U3. **Wire Home Manager with an explicit primary-user contract**
+
+**Goal:** Manage user-level config through Home Manager as part of nix-darwin activation while making the primary-user contract explicit.
 
 **Requirements:** R7, R12, R13, F1
 
@@ -285,18 +290,20 @@ The public repo should not need the private repo to evaluate. Real private host 
 **Approach:**
 - Import `home-manager.darwinModules.home-manager` through a dedicated module or host composition.
 - Use `home-manager.useGlobalPkgs = true` and `home-manager.useUserPackages = true`.
-- Add a generic public `example` user config with fake-safe identity placeholders.
+- Add a generic public `example` user config with fake-safe identity placeholders for evaluation/build.
+- State clearly that `example-aarch64-darwin` is not a real switch target unless the machine actually has an `example` user.
+- Require a real existing username from `nixy-priv` or a local ignored override before a real switch.
 - Include basic shell, Git, and direnv-shaped modules without private keys, signing secrets, or real identity data.
-- Document that real users live in private host/user modules later.
+- Configure direnv conservatively: do not auto-allow `.envrc` files, and document that users should review `.envrc` before running `direnv allow`.
 
 **Patterns to follow:**
 - Home Manager nix-darwin module docs.
 - Existing-user assumption from this plan's Key Technical Decisions.
 
 **Test scenarios:**
-- Happy path: an existing `example` user config can be evaluated as part of the example host.
+- Happy path: the public `example` user config can be evaluated and built as part of the example host.
 - Edge case: no SSH private keys, GPG keys, tokens, or real email addresses are embedded in Home Manager file declarations.
-- Error path: docs state that a real machine must supply an existing macOS username before switching a real host.
+- Error path: docs state that a real machine must supply an existing macOS username through `nixy-priv` or a local ignored override before switching a real host.
 - Integration: Home Manager config builds with the same `pkgs` as nix-darwin via `useGlobalPkgs`.
 
 **Verification:**
@@ -330,16 +337,61 @@ The public repo should not need the private repo to evaluate. Real private host 
 - Determinate installer docs for installing Determinate Nix before nix-darwin.
 
 **Test scenarios:**
-- Happy path: a reader can follow README from Determinate Nix install to first minimal host switch.
+- Happy path: a reader can follow README from Determinate Nix install to public build validation, then to a real first switch through `nixy-priv` or a local ignored override with an existing macOS username.
 - Edge case: existing Mac adoption tells users to inventory/backup and build before switching.
 - Error path: docs describe what to do when `darwin-rebuild` is not yet installed.
 - Integration: host-addition docs reference the same profile/module structure created by earlier units.
 
 **Verification:**
 - A future agent can determine the correct pre-switch validation sequence without inventing it.
-- README and operations docs do not include private URLs or secrets.
+- README and operations docs do not include secrets, private hostnames, private flake inputs, or private lock entries. They may name `nixy-priv` as the intended sibling private repo convention.
 
 ---
+
+- [ ] U8. **Define the private-overlay contract**
+
+**Goal:** Make the public/private boundary concrete enough that the existing sibling private repo `nixy-priv` can safely import this base.
+
+**Requirements:** R1, R2, R3, R11, R12, F1, F2
+
+**Dependencies:** U1, U2
+
+**Files:**
+- Create: `docs/private-overlay.md`
+- Modify: `README.md`
+- Modify: `docs/operations.md`
+- Optionally modify: `flake.nix`
+
+**Follow-up target repo:** `nixy-priv` may later add `flake.nix`, `README.md`, `hosts/<private-host>/default.nix`, and `users/<private-user>.nix`; those files are not part of this public-repo implementation unit.
+
+**Approach:**
+- Document the recommended v1 pattern: `nixy-priv` imports this public repo and defines real `darwinConfigurations`.
+- Document the local checkout convention: this repo and `nixy-priv` live as sibling directories.
+- List what belongs in private config: real usernames, sensitive hostnames, work apps, private taps, identity config, secrets references, encrypted secret files.
+- List what must never be plaintext in public or private Nix expressions if it can enter the store: tokens, keys, passwords, secret file contents.
+- If exposing public modules/profiles as flake outputs materially helps the private repo, add only small stable exports; avoid a broad custom framework.
+- Include notes on `--override-input` or local path overrides as advanced patterns, with warnings about lock-file leakage.
+- Add or document a `check-public-safety` validation that scans public config for denied private inputs, lock entries, real emails/usernames, `/Users/<real-user>` paths, token/key material, and private hostnames while allowing intentional docs references to `nixy-priv`.
+
+**Patterns to follow:**
+- Research recommendation that private repo imports public repo for strongest public-safety.
+- Nix store secrecy warning: store paths are readable to all users.
+
+**Test scenarios:**
+- Happy path: `nixy-priv` can identify which public modules/profiles to import.
+- Edge case: public repo still evaluates with no private repo present.
+- Error path: docs warn against committing private flake URLs, private lock entries, or plaintext secrets.
+- Integration: host-addition docs distinguish public example hosts from real private hosts.
+
+**Verification:**
+- A reviewer can tell exactly where private data should live.
+- Public flake does not require or lock a private input unless deliberately added later with safeguards.
+
+---
+
+### Milestone M2: First real switch gate
+
+Before U5-U7, prove one real minimal host switch through `nixy-priv` or a local ignored override using an existing macOS username. If no real switch target is available, stop after public build validation and keep U5-U7 deferred.
 
 - [ ] U5. **Add conservative workstation profiles**
 
@@ -347,7 +399,7 @@ The public repo should not need the private repo to evaluate. Real private host 
 
 **Requirements:** R2, R4, R9, R10, R13, F2
 
-**Dependencies:** U1, U3, U4
+**Dependencies:** U1, U3, U4, U8, successful minimal host build/switch gate
 
 **Files:**
 - Modify: `profiles/minimal.nix`
@@ -359,9 +411,10 @@ The public repo should not need the private repo to evaluate. Real private host 
 
 **Approach:**
 - Keep `minimal` as the first-rebuild profile with only safe CLI basics.
+- Add `developer`, `gui`, or `workstation` only when each has at least two concrete public-safe declarations or a documented `nixy-priv` consumer; otherwise defer the file and record the intended classification in `docs/inventory.md`.
 - Add `developer` for public-safe dev tooling after minimal rebuild works.
 - Add `gui` as the home for fonts/Homebrew GUI support, but keep casks/MAS sparse until inventory is known.
-- Add `workstation` as an importer/composer rather than a package dump.
+- Add `workstation` as an importer/composer rather than a package dump once there is enough real inventory to justify it.
 - Add `docs/inventory.md` with classification rules: package/app name, install method, profile, public/private status, and manual notes.
 
 **Patterns to follow:**
@@ -385,7 +438,7 @@ The public repo should not need the private repo to evaluate. Real private host 
 
 **Requirements:** R9, R10, R12, R14, F1
 
-**Dependencies:** U4, U5
+**Dependencies:** U4, U5, successful minimal host build/switch gate
 
 **Files:**
 - Create: `modules/darwin/homebrew.nix`
@@ -397,11 +450,14 @@ The public repo should not need the private repo to evaluate. Real private host 
 
 **Approach:**
 - Add `nix-homebrew` input and module when Homebrew itself should be managed.
+- Source `nix-homebrew.user` from the same primary-user contract used by Home Manager.
+- Keep existing Homebrew migration opt-in: fresh installs should not silently adopt/migrate an unmanaged prefix; existing installations require explicit docs before enabling migration.
 - Use nix-darwin `homebrew.*` for package declarations.
 - Start with `cleanup = "none"` or equivalent non-destructive behavior.
 - Document that `homebrew.enable` alone does not install Homebrew; `nix-homebrew` or manual Homebrew install is required.
 - Treat MAS as optional and choose one mechanism before adding real MAS apps.
 - Add fonts through nix-darwin where stable.
+- Add supply-chain review rules to `docs/inventory.md`: approved taps only, no private/unknown taps in the public repo, review cask installer source and permissions before adding, prefer Nix packages over casks when trust is unclear, and document update hygiene for flake inputs and Homebrew inventory.
 
 **Patterns to follow:**
 - nix-homebrew for Homebrew/taps installation.
@@ -412,6 +468,7 @@ The public repo should not need the private repo to evaluate. Real private host 
 - Happy path: Homebrew module can declare a small non-sensitive brew/cask set without cleanup removing existing user apps.
 - Edge case: a manually installed app can remain manual because cleanup is non-destructive.
 - Error path: docs explain MAS failure when the user is not signed into the App Store or does not own the app.
+- Error path: missing primary user or unmanaged Homebrew prefix produces a clear documented stop rather than silent migration.
 - Integration: GUI profile imports Homebrew/fonts without breaking minimal profile users.
 
 **Verification:**
@@ -426,7 +483,7 @@ The public repo should not need the private repo to evaluate. Real private host 
 
 **Requirements:** R9, R10, R12, R14
 
-**Dependencies:** U4, U5
+**Dependencies:** U4, U5, successful minimal host build/switch gate
 
 **Files:**
 - Create: `modules/darwin/macos-defaults.nix`
@@ -451,45 +508,6 @@ The public repo should not need the private repo to evaluate. Real private host 
 **Verification:**
 - Defaults are minimal, grouped, and documented for reversibility.
 - No setting changes security/privacy behavior without an explicit note.
-
----
-
-- [ ] U8. **Define the private-overlay contract**
-
-**Goal:** Make the public/private boundary concrete enough that the existing sibling private repo `nixy-priv` can safely import this base.
-
-**Requirements:** R1, R2, R3, R11, R12, F1, F2
-
-**Dependencies:** U1, U4, U5
-
-**Files:**
-- Create: `docs/private-overlay.md`
-- Modify: `README.md`
-- Modify: `docs/operations.md`
-- Optionally modify: `flake.nix`
-- Target repo `nixy-priv` follow-up files: `flake.nix`, `README.md`, `hosts/<private-host>/default.nix`, `users/<private-user>.nix`
-
-**Approach:**
-- Document the recommended v1 pattern: `nixy-priv` imports this public repo and defines real `darwinConfigurations`.
-- Document the local checkout convention: this repo and `nixy-priv` live as sibling directories.
-- List what belongs in private config: real usernames, sensitive hostnames, work apps, private taps, identity config, secrets references, encrypted secret files.
-- List what must never be plaintext in public or private Nix expressions if it can enter the store: tokens, keys, passwords, secret file contents.
-- If exposing public modules/profiles as flake outputs materially helps the private repo, add only small stable exports; avoid a broad custom framework.
-- Include notes on `--override-input` or local path overrides as advanced patterns, with warnings about lock-file leakage.
-
-**Patterns to follow:**
-- Research recommendation that private repo imports public repo for strongest public-safety.
-- Nix store secrecy warning: store paths are readable to all users.
-
-**Test scenarios:**
-- Happy path: `nixy-priv` can identify which public modules/profiles to import.
-- Edge case: public repo still evaluates with no private repo present.
-- Error path: docs warn against committing private flake URLs, private lock entries, or plaintext secrets.
-- Integration: host-addition docs distinguish public example hosts from real private hosts.
-
-**Verification:**
-- A reviewer can tell exactly where private data should live.
-- Public flake does not require or lock a private input unless deliberately added later with safeguards.
 
 ---
 
