@@ -195,7 +195,7 @@ The public repo should not need the private repo to evaluate. Real private host 
 
 ## Implementation Units
 
-- [ ] U1. **Create the public flake foundation**
+- [x] U1. **Create the public flake foundation**
 
 **Goal:** Add a flake that pins compatible inputs and exposes one Apple Silicon example host without private dependencies.
 
@@ -232,7 +232,7 @@ The public repo should not need the private repo to evaluate. Real private host 
 
 ---
 
-- [ ] U2. **Define the Determinate Nix ownership boundary**
+- [x] U2. **Define the Determinate Nix ownership boundary**
 
 **Goal:** Make the Nix ownership model explicit so Determinate owns Nix while nix-darwin owns macOS/system state.
 
@@ -271,7 +271,7 @@ The public repo should not need the private repo to evaluate. Real private host 
 
 Stop after U1-U2 until the public example host can run flake evaluation and host build validation with `nix.enable = false`. A real switch may happen only through `nixy-priv` or a local ignored override that supplies an existing macOS username. Do not add Home Manager, Homebrew, workstation profiles, or macOS defaults until this gate passes.
 
-- [ ] U3. **Wire Home Manager with an explicit primary-user contract**
+- [x] U3. **Wire Home Manager with an explicit primary-user contract**
 
 **Goal:** Manage user-level config through Home Manager as part of nix-darwin activation while making the primary-user contract explicit.
 
@@ -312,7 +312,7 @@ Stop after U1-U2 until the public example host can run flake evaluation and host
 
 ---
 
-- [ ] U4. **Document bootstrap, rebuild, validation, and rollback flows**
+- [x] U4. **Document bootstrap, rebuild, validation, and rollback flows**
 
 **Goal:** Give future users/agents one safe entry point before any risky `switch` operation.
 
@@ -348,7 +348,7 @@ Stop after U1-U2 until the public example host can run flake evaluation and host
 
 ---
 
-- [ ] U8. **Define the private-overlay contract**
+- [x] U8. **Define the private-overlay contract**
 
 **Goal:** Make the public/private boundary concrete enough that the existing sibling private repo `nixy-priv` can safely import this base.
 
@@ -392,6 +392,8 @@ Stop after U1-U2 until the public example host can run flake evaluation and host
 ### Milestone M2: First real switch gate
 
 Before U5-U7, prove one real minimal host switch through `nixy-priv` or a local ignored override using an existing macOS username. If no real switch target is available, stop after public build validation and keep U5-U7 deferred.
+
+**Execution status:** Deferred. `nixy-priv` currently has no real host flake, so this pass stops after public build validation and the private-overlay contract.
 
 - [ ] U5. **Add conservative workstation profiles**
 
