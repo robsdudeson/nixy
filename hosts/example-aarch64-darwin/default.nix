@@ -8,6 +8,7 @@
   imports = [
     ../../modules/darwin/determinate.nix
     ../../modules/darwin/home-manager.nix
+    ../../modules/darwin/homebrew.nix
     ../../profiles/minimal.nix
   ];
 

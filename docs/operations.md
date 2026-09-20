@@ -18,6 +18,8 @@ nix-darwin owns:
 
 The public Determinate boundary lives in `modules/darwin/determinate.nix` and sets `nix.enable = false`. Do not add ordinary nix-darwin `nix.*` daemon settings while Determinate owns Nix.
 
+`nix-homebrew` owns Homebrew bootstrap through `modules/darwin/homebrew.nix`; nix-darwin's `homebrew.*` options then declare brews/casks on top of that prefix. `nix-homebrew` refuses to adopt a Homebrew installation it does not already own rather than migrating it destructively — if activation stops with an ownership conflict, resolve it by hand (per `nix-homebrew`'s own docs) before retrying. Activation defaults (`autoUpdate`, `upgrade`, `cleanup = "none"`) stay non-destructive so adopting an existing Mac does not silently update, upgrade, or remove apps. Nix rollback does not remove or restore Homebrew cask/app state that exists outside a generation.
+
 ## Validate before switching
 
 Use this order:
