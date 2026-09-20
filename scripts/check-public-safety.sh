@@ -3,7 +3,12 @@ set -euo pipefail
 
 allowed_private_repo='nixy-priv'
 
-mapfile -t files < <(
+# Avoid mapfile/readarray: they need bash 4+, but stock macOS ships bash 3.2
+# and this script must run before Homebrew (and a newer bash) exist.
+files=()
+while IFS= read -r file; do
+	files+=("$file")
+done < <(
 	{
 		git ls-files
 		git ls-files --others --exclude-standard
@@ -20,14 +25,17 @@ status=0
 declare -a checks=(
 	'private flake URL::(git\+ssh://|git\+https://|ssh://).*(private|priv|work|corp|company)'
 	'local user path::/Users/(rd|robby|robsdudeson)(/|$)'
-	'token assignment::(token|password|passwd|secret|api[_-]?key|private[_-]?key)\s*[:=]'
+	'token assignment::(^|[^A-Za-z])(token|password|passwd|secret|api[_-]?key|private[_-]?key)\s*[:=]'
 	'private key block::-----BEGIN [A-Z ]*PRIVATE KEY-----'
 	'real email::[A-Za-z0-9._%+-]+@(gmail\.com|corp|company|work)'
+	'realistic 1Password reference::op://[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+'
+	'1Password account sign-in URL::[a-z0-9][a-z0-9-]*\.1password\.com/(signin|vaults|people|activity|item)'
 )
 
 for file in "${files[@]}"; do
 	[[ -f "$file" ]] || continue
 	[[ "$file" == "scripts/check-public-safety.sh" ]] && continue
+	[[ "$file" == "scripts/check-public-safety.test.sh" ]] && continue
 
 	# The plan and docs intentionally name the private overlay repo. That name is
 	# safe by itself; private URLs, lock entries, paths, and secrets are not.
@@ -37,7 +45,7 @@ for file in "${files[@]}"; do
 	for check in "${checks[@]}"; do
 		label=${check%%::*}
 		pattern=${check#*::}
-		if grep -EIn -- "$pattern" "$sanitized" >/tmp/nixy-public-safety-match; then
+		if grep -EIni -- "$pattern" "$sanitized" >/tmp/nixy-public-safety-match; then
 			echo "Public-safety risk: $label in $file"
 			cat /tmp/nixy-public-safety-match
 			status=1

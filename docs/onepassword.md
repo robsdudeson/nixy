@@ -148,7 +148,7 @@ runs when a command explicitly invokes it.
 
 | Location | Contents | Notes |
 |---|---|---|
-| Public `nixy` | Placeholders only, e.g. `API_KEY=op://<vault>/<item>/<field>` | Never a real vault, item, or field name. |
+| Public `nixy` | Placeholders only, e.g. `EXAMPLE_VALUE=op://<vault>/<item>/<field>` | Never a real vault, item, or field name. |
 | `nixy-priv` | Non-public reference metadata (real vault/item/field names) | Only if you accept that this can appear in Git history and, if templated through Nix, possibly Nix store paths. |
 | Local ignored files (not committed anywhere) | Highly sensitive account, vault, item, host, or service names; full env-reference files | Use for anything you don't want in Git at all, public or private. |
 
