@@ -25,6 +25,9 @@ Put these in the private repo:
 - Identity config.
 - Secret references.
 - Encrypted secret files.
+- Real 1Password account, vault, and item metadata.
+- Real SSH host aliases and host-to-key mappings.
+- A real `agent.toml` for 1Password SSH agent key filtering, if used.
 
 ## What never belongs in Nix plaintext
 

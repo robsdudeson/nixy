@@ -13,13 +13,24 @@ Declarative (this repo, once a host opts in via `profiles/onepassword.nix`):
 - Installing the 1Password desktop app (Homebrew cask).
 - Installing the 1Password CLI v2, `op` (Homebrew `1password-cli` formula).
 
+Declarative, opt-in per user (once a host also wires
+`modules/home/onepassword-ssh.nix`, e.g. via `profiles/onepassword.nix`):
+
+- SSH `IdentityAgent` pointed at the 1Password SSH agent socket.
+- `SSH_AUTH_SOCK` exported to the same socket for tools that read the
+  environment instead of SSH config.
+
 Manual (you, once per machine, after a switch):
 
 - Signing in to the 1Password desktop app.
 - Unlocking 1Password.
 - Enabling CLI integration (1Password → Settings → Developer → "Integrate
   with 1Password CLI").
-- Importing or creating SSH keys and enabling the SSH agent.
+- Enabling the SSH agent (1Password → Settings → Developer → "Use the SSH
+  agent").
+- Importing or creating SSH keys in 1Password.
+- Approving the first SSH connection attempt from a new client (1Password
+  prompts for this).
 
 Nix does not and cannot own 1Password account state, imported keys, app
 approvals, or the SSH agent toggle. Treat those as first-run and existing-Mac
@@ -71,3 +82,42 @@ enabled:
 
 If `op vault list` fails, 1Password is either not signed in, locked, or CLI
 integration is disabled — fix that before assuming a Nix problem.
+
+## SSH agent
+
+`modules/home/onepassword-ssh.nix` sets SSH's `IdentityAgent` to the
+1Password SSH agent socket:
+
+```
+~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock
+```
+
+SSH private keys stay in 1Password; none are written to `~/.ssh`. This
+module is opt-in and only applies to hosts/users that import it (real hosts
+do this through `profiles/onepassword.nix` in `nixy-priv`).
+
+**Existing `~/.ssh/config`:** Home Manager will not silently overwrite an
+existing, unmanaged `~/.ssh/config`. If one already exists, either move it
+aside (e.g. `mv ~/.ssh/config ~/.ssh/config.bak`) before the first switch
+that enables this module, or restructure it as a private `Include` file and
+let Home Manager manage the top-level file. Do not enable this module and
+expect an existing hand-written config to merge automatically.
+
+**Verify after enabling and completing first-run setup:**
+
+```sh
+ssh-add -l                    # lists keys offered by the agent
+ssh -T git@github.com          # exercises Git-over-SSH through the agent
+```
+
+If 1Password is locked or the SSH agent setting is off, SSH fails outright
+rather than silently falling back to another agent — unlock/start 1Password
+and enable the SSH agent setting, then retry.
+
+**Local trust boundary:** any process running as your user can attempt to
+use the 1Password SSH agent socket to request a signature. 1Password prompts
+for approval on new clients/keys by default — do not disable that prompt
+globally. Real per-host or per-key filtering (which keys are offered where)
+is a privacy/least-privilege control, not just a troubleshooting tool; keep
+real host/key mappings in `nixy-priv` or a local ignored file (see
+[`docs/private-overlay.md`](private-overlay.md)).

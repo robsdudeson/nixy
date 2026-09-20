@@ -1,4 +1,7 @@
-{ ... }:
+{
+  primaryUser,
+  ...
+}:
 
 {
   # Opt-in composition point for 1Password. Real hosts import this profile
@@ -7,5 +10,9 @@
   # steps this module does not automate.
   imports = [
     ../modules/darwin/onepassword.nix
+  ];
+
+  home-manager.users.${primaryUser}.imports = [
+    ../modules/home/onepassword-ssh.nix
   ];
 }
