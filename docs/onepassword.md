@@ -121,3 +121,63 @@ globally. Real per-host or per-key filtering (which keys are offered where)
 is a privacy/least-privilege control, not just a troubleshooting tool; keep
 real host/key mappings in `nixy-priv` or a local ignored file (see
 [`docs/private-overlay.md`](private-overlay.md)).
+
+## Runtime secrets: `op run`
+
+The default pattern for command-scoped and project-scoped secrets is:
+
+```sh
+op run --env-file <reference-file> -- <command>
+```
+
+`<reference-file>` is a `KEY=op://<vault>/<item>/<field>` env file. `op run`
+resolves each `op://` reference at the moment the command starts, injects
+the resolved values only into that command's process environment, and never
+writes them to disk, Nix, or the Nix store. If 1Password is locked, missing
+the item, or lacks vault access, the command fails immediately — unlock,
+sign in, or fix vault access, then rerun the command. No Nix build is
+involved in this failure mode.
+
+Prefer a project-local wrapper (a `direnv`-managed reference file, or a
+one-off `op run --env-file .env.op -- npm start`) over a single global
+secrets file. A repo with no reference file must still open shells and run
+unrelated commands without prompting, hanging, or erroring — `op run` only
+runs when a command explicitly invokes it.
+
+### Where reference files live
+
+| Location | Contents | Notes |
+|---|---|---|
+| Public `nixy` | Placeholders only, e.g. `API_KEY=op://<vault>/<item>/<field>` | Never a real vault, item, or field name. |
+| `nixy-priv` | Non-public reference metadata (real vault/item/field names) | Only if you accept that this can appear in Git history and, if templated through Nix, possibly Nix store paths. |
+| Local ignored files (not committed anywhere) | Highly sensitive account, vault, item, host, or service names; full env-reference files | Use for anything you don't want in Git at all, public or private. |
+
+### What never to do
+
+- Never call `op read` or resolve `op://` references during Nix evaluation
+  or a Nix build (`builtins.readFile` on a secret, `builtins.exec`-style
+  tricks, or any derivation that shells out to `op` at build time). Values
+  resolved that way land in the world-readable Nix store.
+- Never let Home Manager generate a plaintext file containing a resolved
+  secret (`home.file` with a resolved value baked in).
+- Never put a resolved secret in a launchd `EnvironmentVariables` plist.
+- Never export a resolved secret as a global, always-on shell variable
+  (e.g. in `.zshrc`/`.zprofile`). Resolve at the point of use instead.
+- Never call `op` during shell startup. Shell startup should be fast and
+  should not depend on 1Password being unlocked; only the commands that
+  actually need secrets should invoke `op run`.
+
+### After `op run` resolves values
+
+Resolved secrets are ordinary process environment variables for the
+lifetime of the child command (and anything it spawns). `op run` prevents
+Nix-store leakage, but it does not prevent every other kind of leak:
+
+- Avoid wrapping long-running services or daemons in `op run` unless you've
+  accepted that every child process inherits the secret environment for the
+  life of the service.
+- Avoid shell tracing (`set -x`), verbose/debug logs, crash reporters, and
+  telemetry tools for anything invoked under `op run` — these can capture
+  and persist the environment.
+- Avoid commands that print or dump their environment (`env`, `printenv`,
+  some verbose `--debug` flags) while running under `op run`.

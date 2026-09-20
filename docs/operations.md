@@ -114,6 +114,14 @@ For a real host, add it in `nixy-priv`:
 
 For a public example host, use a sanitized host alias and fake-safe user data.
 
+## Secrets
+
+Secret values never enter Nix evaluation, builds, or generated files. Use
+`op run --env-file <reference-file> -- <command>` to resolve 1Password
+references only into the environment of the command that needs them. See
+[`docs/onepassword.md`](onepassword.md#runtime-secrets-op-run) for the full
+pattern, including where reference files belong and what to avoid.
+
 ## Direnv
 
 Direnv is enabled through Home Manager, but `.envrc` files are not auto-approved. Read each `.envrc` before running:

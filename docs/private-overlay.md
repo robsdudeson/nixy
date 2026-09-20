@@ -28,6 +28,10 @@ Put these in the private repo:
 - Real 1Password account, vault, and item metadata.
 - Real SSH host aliases and host-to-key mappings.
 - A real `agent.toml` for 1Password SSH agent key filtering, if used.
+- Real `op://<vault>/<item>/<field>` reference files, if you accept that
+  vault/item/field names can appear in Git history. For anything more
+  sensitive than that, use a local ignored file instead — see
+  [`docs/onepassword.md`](onepassword.md#where-reference-files-live).
 
 ## What never belongs in Nix plaintext
 
