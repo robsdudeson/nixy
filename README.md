@@ -82,6 +82,20 @@ steps. See [`docs/onepassword.md`](docs/onepassword.md), including its
 [first-run checklist](docs/onepassword.md#first-run-checklist) and
 [troubleshooting table](docs/onepassword.md#troubleshooting).
 
+## pi coding agent
+
+This repo provides an opt-in profile (`profiles/pi.nix`) for the
+[pi coding agent](https://github.com/earendil-works/pi-coding-agent).
+Nix installs the Bun runtime and sets pi's non-secret environment (PATH,
+package directory, telemetry). The `pi` binary itself is installed with
+`bun install -g @earendil-works/pi-coding-agent` as a one-time manual step.
+Provider API keys are never committed — supply them at runtime via
+`op run --env-file .env.op -- pi` (see
+[`docs/onepassword.md`](docs/onepassword.md#runtime-secrets-op-run)).
+
+See [`docs/pi.md`](docs/pi.md) for the full install, upgrade, secrets, and
+uninstall guide.
+
 ## Useful commands
 
 If `just` is installed:

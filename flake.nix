@@ -50,9 +50,9 @@
       checks.${system} = {
         example-aarch64-darwin = self.darwinConfigurations.example-aarch64-darwin.system;
 
-        # Evaluation-only coverage for opt-in profiles. This is not a
-        # darwinConfiguration, so it can never be switched to, but it proves
-        # the profile composes cleanly before nixy-priv imports it for real.
+        # Evaluation-only coverage for opt-in profiles. These are not
+        # darwinConfigurations, so they can never be switched to, but they
+        # prove each profile composes cleanly before nixy-priv imports it.
         example-aarch64-darwin-onepassword =
           (nix-darwin.lib.darwinSystem {
             inherit system;
@@ -66,6 +66,22 @@
             modules = [
               ./hosts/example-aarch64-darwin
               ./profiles/onepassword.nix
+            ];
+          }).system;
+
+        example-aarch64-darwin-pi =
+          (nix-darwin.lib.darwinSystem {
+            inherit system;
+
+            specialArgs = {
+              inherit inputs;
+              hostName = "example-aarch64-darwin";
+              primaryUser = "example";
+            };
+
+            modules = [
+              ./hosts/example-aarch64-darwin
+              ./profiles/pi.nix
             ];
           }).system;
       };

@@ -159,6 +159,19 @@ references only into the environment of the command that needs them. See
 [`docs/onepassword.md`](onepassword.md#runtime-secrets-op-run) for the full
 pattern, including where reference files belong and what to avoid.
 
+## pi coding agent
+
+Nix installs the Bun runtime and environment. Install pi itself once after
+the first switch on a host that imports `profiles/pi.nix`:
+
+```sh
+bun install -g @earendil-works/pi-coding-agent
+```
+
+Upgrade with `pi update --self`. Supply provider API keys at runtime via
+`op run --env-file .env.op -- pi` — never hardcode them. See
+[`docs/pi.md`](pi.md) for the full guide.
+
 ## Direnv
 
 Direnv is enabled through Home Manager, but `.envrc` files are not auto-approved. Read each `.envrc` before running:

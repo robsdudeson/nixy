@@ -47,7 +47,7 @@ touch "$fake_nixy/docs/private-overlay.md"
 touch "$fake_nixy/scripts/check-public-safety.sh"
 git -C "$fake_nixy" add -A
 git -C "$fake_nixy" -c user.email="test@example.com" \
-	-c user.name="Test" commit -qm "init" >/dev/null 2>&1
+	-c user.name="Test" -c commit.gpgsign=false commit -qm "init" >/dev/null 2>&1
 
 # Create a minimal fake nixy-priv repo at $workdir/nixy-priv.
 fake_priv="$workdir/nixy-priv"
@@ -56,7 +56,7 @@ git -C "$workdir" init -q nixy-priv
 touch "$fake_priv/flake.nix"
 git -C "$fake_priv" add -A
 git -C "$fake_priv" -c user.email="test@example.com" \
-	-c user.name="Test" commit -qm "init" >/dev/null 2>&1
+	-c user.name="Test" -c commit.gpgsign=false commit -qm "init" >/dev/null 2>&1
 
 # ---------------------------------------------------------------------------
 # U1: Path and repo validation
@@ -94,7 +94,7 @@ mkdir -p "$no_marker/scripts"
 touch "$no_marker/scripts/check-public-safety.sh"
 git -C "$no_marker" add -A
 git -C "$no_marker" -c user.email="test@example.com" \
-	-c user.name="Test" commit -qm "init" >/dev/null 2>&1
+	-c user.name="Test" -c commit.gpgsign=false commit -qm "init" >/dev/null 2>&1
 if ! run_bootstrap --repo "$no_marker"; then
 	if grep -q "private-overlay.md" "$tmpout"; then
 		pass "U1 edge case: missing marker file exits with marker name"
@@ -139,7 +139,7 @@ git -C "$workdir" init -q alt-priv
 touch "$alt_priv/flake.nix"
 git -C "$alt_priv" add -A
 git -C "$alt_priv" -c user.email="test@example.com" \
-	-c user.name="Test" commit -qm "init" >/dev/null 2>&1
+	-c user.name="Test" -c commit.gpgsign=false commit -qm "init" >/dev/null 2>&1
 if run_bootstrap \
 	--repo "$fake_nixy" \
 	--private-repo "$alt_priv" ||
@@ -167,7 +167,7 @@ no_flake="$workdir/no-flake"
 mkdir -p "$no_flake"
 git -C "$workdir" init -q no-flake
 git -C "$no_flake" -c user.email="test@example.com" \
-	-c user.name="Test" commit -qm "init" --allow-empty >/dev/null 2>&1
+	-c user.name="Test" -c commit.gpgsign=false commit -qm "init" --allow-empty >/dev/null 2>&1
 if ! run_bootstrap \
 	--repo "$fake_nixy" \
 	--private-repo "$no_flake"; then

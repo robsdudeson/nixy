@@ -13,12 +13,10 @@
     # defaults; opt out explicitly so this module only ever writes the one
     # stanza it owns.
     enableDefaultConfig = false;
-    settings."*".IdentityAgent =
-      "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
+    settings."*".IdentityAgent = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
   };
 
   # Non-secret ergonomics for tools that read SSH_AUTH_SOCK instead of
   # honoring SSH config. This is a socket path, not a resolved secret.
-  home.sessionVariables.SSH_AUTH_SOCK =
-    "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
+  home.sessionVariables.SSH_AUTH_SOCK = "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
 }
