@@ -49,6 +49,13 @@ This repo must not contain:
 
 See [`docs/private-overlay.md`](docs/private-overlay.md) for the `nixy-priv` contract.
 
+## Secrets: 1Password
+
+This repo's secrets strategy is 1Password. Nix installs and wires the
+1Password app, CLI v2, and SSH agent; 1Password itself holds SSH keys and
+secret values. Sign-in, unlock, and feature toggles are manual first-run
+steps. See [`docs/onepassword.md`](docs/onepassword.md).
+
 ## Useful commands
 
 If `just` is installed:
