@@ -4,7 +4,7 @@ This repo installs and wires the 1Password desktop app, 1Password CLI v2, and
 the 1Password SSH agent declaratively. It never stores plaintext secrets,
 real account/vault/item metadata, or private SSH host mappings. Account
 sign-in, unlock, and feature toggles stay manual — see
-[First-run setup](#first-run-setup).
+[First-run checklist](#first-run-checklist).
 
 ## What's declarative vs. manual
 
@@ -65,7 +65,7 @@ install path and to avoid path ambiguity from installing `op` twice. If
 or remove that install for you — see
 [Existing-Mac adoption](operations.md#existing-mac-adoption).
 
-## First-run setup
+## First-run checklist
 
 After a successful `darwin-rebuild switch` on a host with this profile
 enabled:
@@ -74,14 +74,27 @@ enabled:
 2. Unlock 1Password.
 3. Enable CLI integration (Settings → Developer → "Integrate with 1Password
    CLI").
-4. Verify the CLI can see your account:
+4. Enable the SSH agent (Settings → Developer → "Use the SSH agent") — only
+   needed if the host also wires `modules/home/onepassword-ssh.nix`.
+5. Import or create SSH keys in 1Password.
+6. Verify the CLI can see your account:
 
    ```sh
    op vault list
    ```
 
+7. Attempt an SSH connection that uses a 1Password-held key (for example
+   `ssh -T git@github.com`) and approve the first-connection prompt from
+   1Password.
+8. Verify the agent offers the expected keys:
+
+   ```sh
+   ssh-add -l
+   ```
+
 If `op vault list` fails, 1Password is either not signed in, locked, or CLI
-integration is disabled — fix that before assuming a Nix problem.
+integration is disabled — fix that before assuming a Nix problem. If step 7
+fails, see [SSH agent](#ssh-agent) for the same failure mapped to a fix.
 
 ## SSH agent
 
@@ -121,6 +134,32 @@ globally. Real per-host or per-key filtering (which keys are offered where)
 is a privacy/least-privilege control, not just a troubleshooting tool; keep
 real host/key mappings in `nixy-priv` or a local ignored file (see
 [`docs/private-overlay.md`](private-overlay.md)).
+
+## Existing-Mac adoption
+
+Adopting a Mac that already has 1Password-related state in place:
+
+- **1Password already installed manually:** `nix-homebrew` does not migrate
+  or remove an existing 1Password install it does not already own — see
+  [Existing-Mac adoption](operations.md#existing-mac-adoption). If ownership
+  conflicts, resolve it by hand before retrying `darwin-rebuild switch`.
+- **A different SSH agent already running** (e.g. a manually started
+  `ssh-agent`, GPG's agent in SSH mode, or another password manager's
+  agent): enabling `modules/home/onepassword-ssh.nix` sets `IdentityAgent`
+  to the 1Password socket for SSH's own config, but it does not stop or
+  unconfigure another agent running outside SSH config (for example one
+  exported globally via `SSH_AUTH_SOCK` in shell startup). Check for and
+  remove conflicting `SSH_AUTH_SOCK` exports in `~/.zshrc`/`~/.zprofile`
+  before relying on the 1Password agent.
+- **An existing unmanaged `~/.ssh/config`:** see
+  [SSH agent](#ssh-agent) above — move it aside or restructure it as an
+  `Include` before enabling the SSH module.
+- **Manually exported secrets** (real values sitting in `~/.zshrc`,
+  `~/.zprofile`, a global `.env`, or launchd `EnvironmentVariables`):
+  migrate these to `op run --env-file` (see
+  [Runtime secrets](#runtime-secrets-op-run)) and remove the plaintext
+  export. Do this deliberately, one secret at a time — do not assume a Nix
+  switch removes secrets that live outside files this repo manages.
 
 ## Runtime secrets: `op run`
 
@@ -181,3 +220,14 @@ Nix-store leakage, but it does not prevent every other kind of leak:
   and persist the environment.
 - Avoid commands that print or dump their environment (`env`, `printenv`,
   some verbose `--debug` flags) while running under `op run`.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `darwin-rebuild switch` fails during Homebrew activation | Homebrew already installed outside `nix-homebrew`'s ownership | See [Existing-Mac adoption](operations.md#existing-mac-adoption); resolve the ownership conflict by hand, then retry. |
+| `op vault list` fails or hangs | 1Password is locked, not signed in, or CLI integration is off | Unlock/sign in to 1Password, enable Settings → Developer → "Integrate with 1Password CLI", retry. |
+| `ssh-add -l` shows no keys / SSH prompts for a password instead of using 1Password | SSH agent setting is off, or no keys are imported | Enable Settings → Developer → "Use the SSH agent" and import/create keys in 1Password. |
+| SSH connects but 1Password never prompts and the wrong key is offered | A different identity file or agent is taking precedence, or 1Password is offering a broader key set than intended | Check for stale `IdentityFile`/`IdentityAgent` entries elsewhere in SSH config and for private per-host key filtering — see [Local trust boundary](#ssh-agent) and keep real filtering rules in `nixy-priv` or a local ignored file. |
+| `op run --env-file ... -- <command>` fails immediately | 1Password is locked, the referenced item doesn't exist, or the account lacks vault access | Unlock/sign in, confirm the item/vault name and access, then rerun the command — no Nix build is involved. |
+| A command run under `op run` seems to have no secrets in its environment | The reference file path is wrong, or the file lives outside version control by design (see [Where reference files live](#where-reference-files-live)) | Confirm the `--env-file` path and that it isn't an accidentally-empty placeholder file. |

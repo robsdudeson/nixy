@@ -90,6 +90,16 @@ sudo darwin-rebuild rollback
 
 If a GUI app, MAS app, or macOS default caused the issue, check the related module and be ready to undo the change by hand.
 
+Rolling back a generation reverts which 1Password-related *modules* are
+wired (whether `profiles/onepassword.nix` is imported, whether the SSH
+agent module is enabled) but does not touch 1Password's own app state:
+account sign-in, unlock state, imported/created SSH keys, the CLI
+integration and SSH agent toggles, per-client SSH approvals, or a manual
+`agent.toml`. That state lives inside the 1Password app and macOS Keychain,
+outside any Nix generation. A rollback that disables the SSH agent module
+still leaves 1Password's own "Use the SSH agent" setting on; turn it off by
+hand in 1Password if you want SSH to stop offering those keys.
+
 ## Existing Mac adoption
 
 Before adopting an existing Mac:

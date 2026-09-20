@@ -2,6 +2,12 @@
 
 The public repo must evaluate without private files. The private repo, `nixy-priv`, imports this repo and defines real hosts.
 
+For 1Password specifically, see
+[`docs/onepassword.md`](onepassword.md#existing-mac-adoption) for adopting a
+Mac with pre-existing 1Password/SSH-agent state, and
+[`docs/onepassword.md`](onepassword.md#troubleshooting) for mapping common
+failures to fixes.
+
 ## Checkout layout
 
 Use sibling directories:
