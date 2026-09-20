@@ -117,7 +117,11 @@ done
 
 info "Locating public nixy checkout..."
 
+# Resolve to a canonical real path (handles /var -> /private/var on macOS).
 repo_path=$(expand_home "$repo_path")
+if [[ -d "$repo_path" ]]; then
+	repo_path=$(cd "$repo_path" && pwd -P)
+fi
 
 # Marker files that must exist in a real nixy checkout.
 marker_files=(
@@ -169,11 +173,14 @@ info "Locating private nixy-priv checkout..."
 
 if [[ -z "$private_repo_path" ]]; then
 	# Default: sibling directory named nixy-priv next to the public repo.
-	parent_dir=$(dirname "$repo_path")
-	private_repo_path="$parent_dir/nixy-priv"
+	# repo_path is already canonical (pwd -P), so dirname is safe.
+	private_repo_path="$(dirname "$repo_path")/nixy-priv"
 fi
 
 private_repo_path=$(expand_home "$private_repo_path")
+if [[ -d "$private_repo_path" ]]; then
+	private_repo_path=$(cd "$private_repo_path" && pwd -P)
+fi
 
 if [[ ! -d "$private_repo_path" ]]; then
 	err "Private repo not found at '$private_repo_path'."

@@ -36,6 +36,9 @@ for file in "${files[@]}"; do
 	[[ -f "$file" ]] || continue
 	[[ "$file" == "scripts/check-public-safety.sh" ]] && continue
 	[[ "$file" == "scripts/check-public-safety.test.sh" ]] && continue
+	# bootstrap.test.sh uses intentional realistic fixtures to verify the check
+	# blocks them — same rationale as check-public-safety.test.sh above.
+	[[ "$file" == "scripts/bootstrap.test.sh" ]] && continue
 
 	# The plan and docs intentionally name the private overlay repo. That name is
 	# safe by itself; private URLs, lock entries, paths, and secrets are not.
