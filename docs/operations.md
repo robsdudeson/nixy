@@ -20,6 +20,33 @@ The public Determinate boundary lives in `modules/darwin/determinate.nix` and se
 
 `nix-homebrew` owns Homebrew bootstrap through `modules/darwin/homebrew.nix`; nix-darwin's `homebrew.*` options then declare brews/casks on top of that prefix. `nix-homebrew` refuses to adopt a Homebrew installation it does not already own rather than migrating it destructively — if activation stops with an ownership conflict, resolve it by hand (per `nix-homebrew`'s own docs) before retrying. Activation defaults (`autoUpdate`, `upgrade`, `cleanup = "none"`) stay non-destructive so adopting an existing Mac does not silently update, upgrade, or remove apps. Nix rollback does not remove or restore Homebrew cask/app state that exists outside a generation.
 
+## Bootstrap script
+
+`scripts/bootstrap.sh` is a guided wrapper around the validate-build-switch
+flow below. It handles:
+
+- Confirming the public checkout path (default `~/code/nixy`; override with
+  `--repo <path>` or `NIXY_REPO`).
+- Confirming the `nixy-priv` sibling checkout exists (override with
+  `--private-repo <path>` or `NIXY_PRIV_REPO`).
+- Discovering real `darwinConfigurations` from `nixy-priv` at runtime.
+- Dry-building the selected host before offering a switch.
+- Prompting for explicit confirmation (`y/N`) before any `darwin-rebuild switch`.
+- Printing the [1Password first-run checklist](onepassword.md#first-run-checklist)
+  pointer after a successful switch on 1Password-enabled hosts.
+
+```sh
+./scripts/bootstrap.sh            # interactive: prompt for host, then confirm switch
+./scripts/bootstrap.sh --build-only   # validate and build; skip switch
+./scripts/bootstrap.sh --host <host>  # non-interactive host selection
+./scripts/bootstrap.sh --help         # all options
+```
+
+Use `just bootstrap` as a shortcut if `just` is installed.
+
+The manual steps in the sections below are what the script wraps. Use them
+directly when you need more control or are troubleshooting.
+
 ## Validate before switching
 
 Use this order:

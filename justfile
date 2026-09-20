@@ -2,6 +2,9 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
 host := "example-aarch64-darwin"
 
+bootstrap *ARGS:
+    ./scripts/bootstrap.sh {{ARGS}}
+
 show:
     nix flake show
 

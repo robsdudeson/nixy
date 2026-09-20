@@ -15,19 +15,43 @@ nix build .#darwinConfigurations.example-aarch64-darwin.system --dry-run
 
 Do not run `darwin-rebuild switch` against the public example unless the Mac has an existing user named `example`. For a real Mac, define the real host and existing macOS user in `nixy-priv` or in a local ignored override.
 
+## Bootstrap script
+
+For guided setup, use `scripts/bootstrap.sh`. It validates the repo layout,
+confirms the `nixy-priv` sibling is present, discovers real hosts, dry-builds
+the selected host, and prompts before switching:
+
+```sh
+./scripts/bootstrap.sh
+```
+
+Or use `just bootstrap` if `just` is installed. Pass `--build-only` to
+validate without switching. Use `--help` for all options.
+
+The script never stores private hostnames in this repo — it discovers them
+from your `nixy-priv` checkout at runtime. See
+[`docs/operations.md`](docs/operations.md) for the full validate-build-switch
+flow the script wraps.
+
 ## Fresh Mac outline
 
 1. Install Determinate Nix from the official installer.
-2. Clone this repo and, for real hosts, clone `nixy-priv` as a sibling directory.
-3. Validate the public base:
+2. Clone this repo and `nixy-priv` as sibling directories.
+3. Run `./scripts/bootstrap.sh` (or follow the manual steps below).
+4. The script validates the layout, discovers real hosts, and guides you
+   through a dry-build before any switch.
+
+Manual steps (without the script):
+
+1. Validate the public base:
 
    ```sh
    nix flake show
    nix build .#darwinConfigurations.example-aarch64-darwin.system --dry-run
    ```
 
-4. Build the real private host from `nixy-priv` before switching.
-5. Switch only after the build succeeds and the host config names an existing macOS user.
+2. Build the real private host from `nixy-priv` before switching.
+3. Switch only after the build succeeds and the host config names an existing macOS user.
 
 See [`docs/operations.md`](docs/operations.md) for rebuild, rollback, update, and existing-Mac adoption notes.
 
@@ -63,6 +87,7 @@ steps. See [`docs/onepassword.md`](docs/onepassword.md), including its
 If `just` is installed:
 
 ```sh
+just bootstrap            # guided setup (validate, discover hosts, build, switch)
 just show
 just build-example
 just check-public-safety

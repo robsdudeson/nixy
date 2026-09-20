@@ -18,7 +18,13 @@ code/rd/
 └── nixy-priv/
 ```
 
-The public repo should not import `nixy-priv`. That keeps public evaluation stable and keeps private inputs out of the public lock file.
+The public repo should not import `nixy-priv`. That keeps public evaluation
+stable and keeps private inputs out of the public lock file.
+
+Once both repos are checked out, run `./scripts/bootstrap.sh` from the public
+repo. It confirms the layout, discovers real hosts from `nixy-priv`, and
+guides you through the build-then-switch flow. See
+[`docs/operations.md`](operations.md#bootstrap-script) for details.
 
 ## What belongs in `nixy-priv`
 
