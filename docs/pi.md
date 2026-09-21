@@ -101,6 +101,52 @@ If you do not use 1Password, set the provider variable manually in your
 terminal before starting pi. Never put a resolved key in `.zshrc`, `.zprofile`,
 or any committed file.
 
+## Using pi with the local llama-server
+
+`services.llama-server` exposes llama.cpp through an OpenAI-compatible API at
+`http://127.0.0.1:8080/v1` by default. Add a provider for that endpoint in
+`~/.config/pi/agent/models.json`:
+
+```json
+{
+  "providers": {
+    "local-llm": {
+      "baseUrl": "http://127.0.0.1:8080/v1",
+      "api": "openai-completions",
+      "apiKey": "sk-noop",
+      "models": [
+        {
+          "id": "local-model",
+          "input": ["text"],
+          "compat": {
+            "maxTokensField": "max_tokens"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Set `models[].id` to the same value as `services.llama-server.alias`. That
+alias becomes llama.cpp's `--alias` value, and pi uses it as the model name.
+The OpenAI transport requires `apiKey`, but llama-server ignores it. Use a
+non-secret placeholder such as `sk-noop`.
+
+Pi streams responses for `api: "openai-completions"` by default. There is no
+streaming switch to turn on. Start with the minimal `compat` block above; add
+the other fields only when the local server rejects or omits a streaming field:
+
+| Symptom | `compat` field | When to use it |
+|---|---|---|
+| llama-server rejects `max_completion_tokens` | `"maxTokensField": "max_tokens"` | Recommended for llama.cpp-compatible servers |
+| Streaming fails when pi requests usage data | `"supportsUsageInStreaming": false` | Add only if the server rejects `stream_options.include_usage` |
+| Streamed chunks never include a finish reason | `"supportsFinishReason": false` | Add only if pi reports missing `finish_reason` data |
+
+`models.json` sits beside `settings.json`, `trust.json`, sessions, and package
+caches. Do not manage it with Nix or replace it with a store symlink; pi can
+change files in this directory while it runs.
+
 ## Environment variables
 
 | Variable | Set by | Default | Purpose |

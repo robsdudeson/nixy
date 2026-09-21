@@ -63,6 +63,11 @@ fixed `modelPath` remains the source of truth.
 The module binds to `127.0.0.1` by default. Do not expose the server on a
 network until you add an authentication and access-control design.
 
+To point pi at this local server, add an OpenAI-compatible provider in
+`~/.config/pi/agent/models.json`. See
+[the pi docs](pi.md#using-pi-with-the-local-llama-server) for the provider
+example, streaming notes, and the `alias`/model-name mapping.
+
 ## Validation and rollback
 
 Before switching a real host, dry-build it from its private configuration.

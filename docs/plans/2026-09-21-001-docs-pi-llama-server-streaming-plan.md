@@ -110,7 +110,7 @@ streaming works out of the box, and no guidance on the llama.cpp-specific
 
 ## Implementation Units
 
-- [ ] U1. **Add "Using pi with the local llama-server" section to `docs/pi.md`**
+- [x] U1. **Add "Using pi with the local llama-server" section to `docs/pi.md`**
 
 **Goal:** Give a reader a copy-adaptable `models.json` provider entry and a
 clear streaming explanation, framed as a first-run step.
@@ -151,7 +151,7 @@ clear streaming explanation, framed as a first-run step.
 - `id`/`alias` correspondence and the `127.0.0.1:8080/v1` endpoint match
   `modules/home/llama-server.nix` defaults.
 
-- [ ] U2. **Cross-link `docs/llama-server.md` to the pi wiring section**
+- [x] U2. **Cross-link `docs/llama-server.md` to the pi wiring section**
 
 **Goal:** A reader configuring the server can discover how to point pi at it.
 
