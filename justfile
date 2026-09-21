@@ -22,6 +22,8 @@ check:
     nix build .#darwinConfigurations.{{host}}.system --dry-run
     nix build .#checks.aarch64-darwin.example-aarch64-darwin-onepassword --dry-run
     nix build .#checks.aarch64-darwin.example-aarch64-darwin-pi --dry-run
+    nix build .#checks.aarch64-darwin.example-aarch64-darwin-llama-server --dry-run
+    nix build .#checks.aarch64-darwin.example-aarch64-darwin-llama-server-enabled --dry-run
     ./scripts/bootstrap.test.sh
     ./scripts/check-public-safety.sh
 

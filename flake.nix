@@ -84,6 +84,54 @@
               ./profiles/pi.nix
             ];
           }).system;
+
+        example-aarch64-darwin-llama-server =
+          (nix-darwin.lib.darwinSystem {
+            inherit system;
+
+            specialArgs = {
+              inherit inputs;
+              hostName = "example-aarch64-darwin";
+              primaryUser = "example";
+            };
+
+            modules = [
+              ./hosts/example-aarch64-darwin
+              ./profiles/llama-server.nix
+              # Minimal config to prove eval with service disabled.
+              (
+                { lib, ... }:
+                {
+                  home-manager.users.example.services.llama-server.enable = lib.mkForce false;
+                }
+              )
+            ];
+          }).system;
+
+        # Sanitized enabled configuration that exercises the complete command
+        # and launchd-agent shape without referencing a real host or model.
+        example-aarch64-darwin-llama-server-enabled =
+          (nix-darwin.lib.darwinSystem {
+            inherit system;
+
+            specialArgs = {
+              inherit inputs;
+              hostName = "example-aarch64-darwin";
+              primaryUser = "example";
+            };
+
+            modules = [
+              ./hosts/example-aarch64-darwin
+              ./profiles/llama-server.nix
+              {
+                home-manager.users.example.services.llama-server = {
+                  enable = true;
+                  modelPath = "/Users/example/.cache/llama-server/example.gguf";
+                  alias = "example-model";
+                };
+              }
+            ];
+          }).system;
       };
     };
 }
