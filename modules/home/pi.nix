@@ -6,13 +6,15 @@
 }:
 
 {
-  # Install the Bun JavaScript runtime. The pi coding agent
-  # (@earendil-works/pi-coding-agent) is installed on top of Bun as a
-  # separate imperative step — see docs/pi.md for the one-time install command.
-  # Bun is in nixpkgs; pi itself is not, and fully declarative packaging was
-  # deliberately deferred (see docs/plans/2026-09-20-001-feat-pi-coding-agent-nix-plan.md).
+  # Install the runtimes used by the manual pi setup flow. The pi coding agent
+  # (@earendil-works/pi-coding-agent) is installed on top of Bun as a separate
+  # imperative step — see docs/pi.md for the one-time install command. Node/npm
+  # support LazyPi's `npx @robzolkos/lazypi` package bootstrap. pi itself is not
+  # packaged here, and fully declarative packaging was deliberately deferred
+  # (see docs/plans/2026-09-20-001-feat-pi-coding-agent-nix-plan.md).
   home.packages = with pkgs; [
     bun
+    nodejs_22
   ];
 
   home.sessionVariables = {
@@ -20,6 +22,10 @@
     # Set it explicitly so the imperative `bun install -g pi` lands in a
     # predictable, user-writable location regardless of how Bun was installed.
     BUN_INSTALL = "${config.home.homeDirectory}/.bun";
+
+    # Keep pi and LazyPi on the same writable config tree. Without this,
+    # LazyPi defaults to ~/.pi/agent while this module seeds ~/.config/pi/agent.
+    PI_CODING_AGENT_DIR = "${config.home.homeDirectory}/.config/pi/agent";
 
     # Stable, user-writable location for pi extension packages (npm/git).
     # Avoids Nix-store path tokenisation issues documented in pi's Nix guidance.

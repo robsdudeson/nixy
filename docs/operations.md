@@ -161,14 +161,34 @@ pattern, including where reference files belong and what to avoid.
 
 ## pi coding agent
 
-Nix installs the Bun runtime and environment. Install pi itself once after
-the first switch on a host that imports `profiles/pi.nix`:
+Nix installs Bun, Node/npm, and pi's non-secret environment. Install pi itself
+once after the first switch on a host that imports `profiles/pi.nix`:
 
 ```sh
 bun install -g @earendil-works/pi-coding-agent
 ```
 
-Upgrade with `pi update --self`. Supply provider API keys at runtime via
+Before bootstrapping packages, check that the shell sees the intended pi binary
+and mutable Pi locations:
+
+```sh
+which -a pi
+pi --version
+echo "$PI_CODING_AGENT_DIR"
+echo "$PI_PACKAGE_DIR"
+```
+
+LazyPi is optional. Run a reviewed LazyPi version manually after pi is installed;
+do not run it from Nix activation:
+
+```sh
+npx @robzolkos/lazypi@<reviewed-version>
+npx @robzolkos/lazypi@<reviewed-version> status
+npx @robzolkos/lazypi@<reviewed-version> doctor
+```
+
+Upgrade pi with `pi update --self`. Update LazyPi-managed packages with a
+reviewed LazyPi version. Supply provider API keys at runtime via
 `op run --env-file .env.op -- pi` — never hardcode them. See
 [`docs/pi.md`](pi.md) for the full guide.
 

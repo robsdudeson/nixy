@@ -10,10 +10,13 @@ was deferred. See [First-run checklist](#first-run-checklist).
 Declarative (this repo, once a host opts in via `profiles/pi.nix`):
 
 - Installing the Bun runtime (`pkgs.bun`).
+- Installing Node.js 22 (`pkgs.nodejs_22`) so `npx` can run LazyPi.
 - Setting `BUN_INSTALL` to `~/.bun` so `bun install -g` lands in a
   predictable, user-writable location.
 - Adding `~/.bun/bin` to `PATH` so the installed `pi` binary resolves in
   every login shell.
+- Setting `PI_CODING_AGENT_DIR` to `~/.config/pi/agent` so pi and LazyPi use
+  the same writable config tree.
 - Setting `PI_PACKAGE_DIR` to `~/.local/share/pi/packages` for stable,
   store-path-safe extension storage.
 - Setting `PI_TELEMETRY=0` to opt out of install/update telemetry.
@@ -23,6 +26,7 @@ Declarative (this repo, once a host opts in via `profiles/pi.nix`):
 Manual (you, once per machine, after a switch):
 
 - Installing `pi` with `bun install -g @earendil-works/pi-coding-agent`.
+- Optionally running LazyPi to install community Pi packages.
 - Configuring a provider API key (see [Provider API keys](#provider-api-keys)).
 - Any personal settings (theme, editor, model) in `settings.json`.
 
@@ -52,28 +56,87 @@ After a successful `darwin-rebuild switch` on a host with this profile enabled:
    bun install -g @earendil-works/pi-coding-agent
    ```
 
-2. Verify pi is on `PATH`:
+2. Verify pi and the LazyPi runtime tools are on `PATH`:
 
    ```sh
-   which pi
+   which -a pi
    pi --version
+   bun --version
+   node --version
+   npm --version
+   npx --version
+   echo "$PI_CODING_AGENT_DIR"
+   echo "$PI_PACKAGE_DIR"
    ```
 
-3. Configure a provider API key — see [Provider API keys](#provider-api-keys).
+   Node must be `22.19` or newer for LazyPi.
 
-4. Start pi:
+3. Optional: install community Pi packages with LazyPi — see
+   [LazyPi package bootstrap](#lazypi-package-bootstrap).
+
+4. Configure a provider API key — see [Provider API keys](#provider-api-keys).
+
+5. Start pi:
 
    ```sh
    pi
    ```
 
+## LazyPi package bootstrap
+
+[LazyPi](https://lazypi.org/) is an optional package bootstrapper for Pi. It
+installs a curated set of community packages such as subagents, MCP support,
+web access, memory, plan mode, interactive shell, Compound Engineering, usage
+tracking, and themes.
+
+Run LazyPi only after a rebuild and after `pi` is already installed with Bun.
+Do not run it from Home Manager or nix-darwin activation: it is interactive,
+networked, and mutates Pi's writable package/config state.
+
+Recommended install flow:
+
+```sh
+which -a pi
+pi --version
+echo "$PI_CODING_AGENT_DIR"
+echo "$PI_PACKAGE_DIR"
+npx @robzolkos/lazypi@<reviewed-version>
+npx @robzolkos/lazypi@<reviewed-version> status
+npx @robzolkos/lazypi@<reviewed-version> doctor
+which -a pi
+pi --version
+```
+
+Use a reviewed LazyPi version when you want repeatable setup. Running
+`npx @robzolkos/lazypi` without a version fetches the latest package and is
+best treated as an intentional one-off update.
+
+Pi packages run with full user permissions. Review the LazyPi catalog before
+choosing **Install all**, especially on machines or projects that handle private
+work. Keep real package choices and provider-auth details in `nixy-priv` or
+local ignored notes, not in public `nixy`.
+
+Useful LazyPi commands:
+
+```sh
+npx @robzolkos/lazypi@<reviewed-version> status
+npx @robzolkos/lazypi@<reviewed-version> update
+npx @robzolkos/lazypi@<reviewed-version> doctor
+npx @robzolkos/lazypi@<reviewed-version> remove
+```
+
+LazyPi install and update need network access. They are separate from running
+pi with `PI_OFFLINE=1`.
+
 ## Upgrading
+
+Upgrade pi itself with:
 
 ```sh
 pi update --self
 ```
 
-To pin to a specific version:
+To pin pi to a specific version:
 
 ```sh
 bun install -g @earendil-works/pi-coding-agent@<version>
@@ -81,6 +144,13 @@ bun install -g @earendil-works/pi-coding-agent@<version>
 
 Check the installed version with `pi --version` or look for
 `lastChangelogVersion` in `~/.config/pi/agent/settings.json`.
+
+Update LazyPi-managed packages with the reviewed LazyPi version you want to
+trust:
+
+```sh
+npx @robzolkos/lazypi@<reviewed-version> update
+```
 
 ## Provider API keys
 
@@ -152,9 +222,10 @@ change files in this directory while it runs.
 | Variable | Set by | Default | Purpose |
 |---|---|---|---|
 | `BUN_INSTALL` | `modules/home/pi.nix` | `~/.bun` | Bun global-package prefix; `~/.bun/bin` on `PATH` |
+| `PI_CODING_AGENT_DIR` | `modules/home/pi.nix` | `~/.config/pi/agent` | Pi config root; keeps pi and LazyPi on the same writable tree |
 | `PI_PACKAGE_DIR` | `modules/home/pi.nix` | `~/.local/share/pi/packages` | Extension/plugin install root; avoids Nix-store path issues |
 | `PI_TELEMETRY` | `modules/home/pi.nix` | `0` (off) | Install/update telemetry; set `1` in a local shell profile to re-enable |
-| `PI_OFFLINE` | unset | — | Set `1` to disable all startup network operations (update checks, telemetry) |
+| `PI_OFFLINE` | unset | — | Set `1` to disable startup network operations (update checks, package updates, telemetry) |
 
 ## settings.json
 
@@ -175,16 +246,18 @@ mutates this file and the sibling files in the same directory (`trust.json`,
 
 ## Extensions and skills
 
-pi extensions and skills are installed imperatively with `pi install`:
+pi extensions and skills are installed imperatively with `pi install` or with
+LazyPi:
 
 ```sh
 pi install npm:<package>
 pi install git:github.com/<user>/<repo>
+npx @robzolkos/lazypi@<reviewed-version>
 ```
 
-They land in `PI_PACKAGE_DIR` (default `~/.local/share/pi/packages`).
-Declarative management of specific extensions is deferred to a future
-iteration.
+They land in `PI_PACKAGE_DIR` (default `~/.local/share/pi/packages`) and are
+recorded in Pi's writable config tree. Declarative management of specific
+extensions is deferred to a future iteration.
 
 ## Offline mode
 
@@ -197,6 +270,12 @@ PI_OFFLINE=1 pi
 Or set `PI_OFFLINE=1` in a local, non-committed shell profile.
 
 ## Uninstall / escape hatch
+
+To remove LazyPi-installed packages, use LazyPi first:
+
+```sh
+npx @robzolkos/lazypi@<reviewed-version> remove
+```
 
 To remove pi without touching the rest of the Nix configuration:
 
@@ -226,6 +305,8 @@ not touch `~/.config/pi` or any installed extensions.
 |---|---|---|
 | `pi: command not found` after switch | pi not yet installed, or `~/.bun/bin` not on PATH in the current shell | Open a new login shell (PATH is set at session start), then run `bun install -g @earendil-works/pi-coding-agent` |
 | `bun: command not found` | Home Manager switch not applied yet, or shell not restarted | Run `darwin-rebuild switch`, then open a new shell |
+| `npx @robzolkos/lazypi` fails with a Node version error | Node is missing, too old, or the shell predates the latest switch | Open a fresh shell and check `node --version`; it must be `22.19` or newer |
+| LazyPi status does not match Pi's packages | `PI_CODING_AGENT_DIR` or `PI_PACKAGE_DIR` is missing, or multiple `pi` installs exist | Check `echo $PI_CODING_AGENT_DIR`, `echo $PI_PACKAGE_DIR`, and `which -a pi`; resolve duplicates before updating packages |
 | pi starts but has no provider | Provider variable not set | Use `op run --env-file .env.op -- pi` or set the provider variable in your shell before starting pi |
 | `op run` fails immediately | 1Password locked, item missing, or wrong vault | Unlock/sign in, verify item/vault name, rerun |
 | Extensions install to wrong path | `PI_PACKAGE_DIR` not exported in the current shell | Restart the shell or `echo $PI_PACKAGE_DIR` to confirm |
