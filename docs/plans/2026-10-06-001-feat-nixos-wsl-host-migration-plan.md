@@ -243,7 +243,7 @@ The public repo never references the private repo. The private repo follows all 
 
 ## Implementation Units
 
-- [ ] U1. **Add scoped NixOS inputs (seeded from the live lock) and the public bun/pi overlay**
+- [x] U1. **Add scoped NixOS inputs (seeded from the live lock) and the public bun/pi overlay**
 
 **Goal:** nixy declares the exact 26.05 input set the live host runs today — same locked revisions, not just same branch refs — plus the single public overlay definition, without any host yet.
 
@@ -275,7 +275,7 @@ The public repo never references the private repo. The private repo follows all 
 
 ---
 
-- [ ] U2. **Port public-safe home modules (fish, gh, vscode, git extensions, declarative pi)**
+- [x] U2. **Port public-safe home modules (fish, gh, vscode, git extensions, declarative pi)**
 
 **Goal:** The WSL host's user-level program configuration is expressible with public nixy modules whose defaults are fake-safe.
 
@@ -311,7 +311,7 @@ The public repo never references the private repo. The private repo follows all 
 
 ---
 
-- [ ] U3. **Port NixOS machine modules (common, wsl)**
+- [x] U3. **Port NixOS machine modules (common, wsl)**
 
 **Goal:** System-level NixOS behavior of the WSL host is available as public nixy modules.
 
@@ -340,7 +340,7 @@ The public repo never references the private repo. The private repo follows all 
 
 ---
 
-- [ ] U4. **Compose the fake-safe example NixOS WSL host**
+- [x] U4. **Compose the fake-safe example NixOS WSL host**
 
 **Goal:** nixy builds a complete NixOS WSL system on the 26.05 line without any private data, proving the public side of the composition (inputs + overlay + all ported modules).
 
@@ -616,6 +616,16 @@ U9 checklist fully green and the host has been used normally (pi sessions, git c
 - `docs/private-overlay.md` extends the contract to `nixosConfigurations` without changing darwin rules.
 - After M3, capture a durable learning under `docs/solutions/` via `/ce-compound`: "additive NixOS support in a Darwin-first two-repo setup" (channel scoping, mk-nixos-host pattern, public-safe pi-declarative defaults).
 - nix-it-up `docs/HOSTS.md` is updated in U10 so its remaining readers know where nixos-wsl went.
+
+---
+
+## Execution Log (updated during /ce-work)
+
+- **U1 (2026-10-06):** PR 556047 merged to master 2026-09-12, but the locked nixos-26.05 rev still carries bun 1.3.13 vs 1.4.2 on PR-head (verified by evaling both revs) — `nixpkgs-bun` input + overlay KEPT to preserve live-host behavior; TODO updated in flake.nix.
+- **U2:** option namespaces resolved: fish/gh/vscode are optionless (import = enable); git gains `gitIdentity.*`; pi-declarative lives under `programs.pi-declarative.*`. Dropped from public modules for the private host config (U8): fish abbrs `nix-switch`/`skills-link`/`skills-sync`, system alias `op="op.exe"`, real git identity + `credential.helper = "!op git-credential"`, personal ignores (`.cfg`, `.pi/agent/git/**`, `**/.mcp-perplexity-chats.db`), pi package list + provider defaults + `PI_JEV_BASE_URL`, skill-manager bootstrap/sync services.
+- **U2/U4:** `vscode.nix` needs the nix-vscode-extensions overlay for `pkgs.vscode-marketplace`. The live WSL host does NOT enable my.programs.vscode (VS Code runs on the Windows side, remote-WSL), so no such overlay is added to the public line and the example host does not import vscode.nix. Module header documents the requirement.
+- **U3:** `machine.common` keeps 6 generic packages; personal curation (fastfetch, gh, meslo-lgs-nf, neovim, nerd-fonts.fira-code) re-enters via new `machine.common.extraPackages` option in U8.
+- **U4:** example host eval + toplevel dry-build pass on x86_64-linux. Verified `gitIdentity` disabled path against real HM 26.05 eval (null `ignores` definition resolves to default — no type error).
 
 ---
 
