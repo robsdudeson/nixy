@@ -87,7 +87,7 @@ streaming works out of the box, and no guidance on the llama.cpp-specific
   "max_tokens"` up front (llama.cpp convention) but leave
   `supportsUsageInStreaming`/`supportsFinishReason` at defaults unless the user
   observes errors — recent llama.cpp builds support both.
-- **Placeholder apiKey:** the OpenAI transport requires `apiKey`; llama-server
+- **Placeholder API key:** the OpenAI transport requires an `apiKey` value; llama-server
   ignores it, so a non-secret placeholder (`sk-noop`) is documented — never a
   real key, consistent with the Provider API keys section.
 
