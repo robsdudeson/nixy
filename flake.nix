@@ -70,6 +70,24 @@
         ];
       };
 
+      # Fake-safe NixOS WSL host on the scoped 26.05 line (see
+      # hosts/example-x86_64-linux/). Proves the public composition: inputs,
+      # overlay, machine modules, and home modules — no private data.
+      nixosConfigurations.example-x86_64-linux =
+        inputs.nixpkgs-nixos.lib.nixosSystem {
+          system = "x86_64-linux";
+
+          specialArgs = {
+            inherit inputs;
+            hostName = "example-x86_64-linux";
+            primaryUser = "example";
+          };
+
+          modules = [
+            ./hosts/example-x86_64-linux
+          ];
+        };
+
       formatter.${system} = pkgs.nixfmt-rfc-style;
 
       checks.${system} = {
@@ -157,6 +175,13 @@
               }
             ];
           }).system;
+      };
+
+      # NixOS side: full toplevel build of the example WSL host on the
+      # scoped 26.05 line (separate system from the darwin checks above).
+      checks.x86_64-linux = {
+        example-x86_64-linux =
+          self.nixosConfigurations.example-x86_64-linux.config.system.build.toplevel;
       };
     };
 }

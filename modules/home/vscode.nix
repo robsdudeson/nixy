@@ -1,3 +1,8 @@
+# NOTE: extension resolution uses `pkgs.vscode-marketplace`, which requires
+# the nix-vscode-extensions overlay (github:nix-community/nix-vscode-extensions)
+# to be applied to pkgs. The WSL host does not enable this module — VS Code
+# runs on the Windows side and connects via remote-WSL — so no such overlay is
+# wired into the public NixOS line.
 { pkgs, ... }:
 
 {
