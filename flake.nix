@@ -17,6 +17,31 @@
     nix-homebrew = {
       url = "github:zhaofengli/nix-homebrew";
     };
+
+    # Scoped NixOS line for WSL hosts. These inputs are pinned to the exact
+    # locked revisions of the live host's flake (see docs/plans/
+    # 2026-10-06-001-feat-nixos-wsl-host-migration-plan.md) — do not let them
+    # drift with `nix flake update` without re-verifying the migration gates.
+    nixpkgs-nixos.url = "github:NixOS/nixpkgs/nixos-26.05";
+
+    home-manager-nixos = {
+      url = "github:nix-community/home-manager/release-26.05";
+      inputs.nixpkgs.follows = "nixpkgs-nixos";
+    };
+
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL/release-26.05";
+      inputs.nixpkgs.follows = "nixpkgs-nixos";
+    };
+
+    pi.url = "github:earendil-works/pi/stable";
+
+    # The live host runs bun 1.4.2 from this PR-head rev; the locked
+    # nixos-26.05 rev still carries bun 1.3.13 (verified 2026-10-06). PR
+    # 556047 merged to master 2026-09-12 but is not backported to the locked
+    # 26.05 rev yet — drop this input and the overlay in modules/nixos/
+    # overlays.nix once nixos-26.05 carries bun >= 1.4.
+    nixpkgs-bun.url = "github:NixOS/nixpkgs/pull/556047/head";
   };
 
   outputs =
