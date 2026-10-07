@@ -18,6 +18,14 @@
       url = "github:zhaofengli/nix-homebrew";
     };
 
+    # Marketplace extension definitions for programs.vscode (see
+    # modules/darwin/vscode.nix and modules/home/vscode.nix). Not used by the
+    # NixOS/WSL line — VS Code runs on the Windows side there.
+    nix-vscode-extensions = {
+      url = "github:nix-community/nix-vscode-extensions";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Scoped NixOS line for WSL hosts. These inputs are pinned to the exact
     # locked revisions of the live host's flake (see docs/plans/
     # 2026-10-06-001-feat-nixos-wsl-host-migration-plan.md) — do not let them
@@ -140,6 +148,27 @@
             modules = [
               ./hosts/example-aarch64-darwin
               ./profiles/pi.nix
+            ];
+          }).system;
+
+        # Proves the nix-vscode-extensions overlay and the VS Code package/
+        # home-module composition resolve on the Darwin line.
+        example-aarch64-darwin-vscode =
+          (nix-darwin.lib.darwinSystem {
+            inherit system;
+
+            specialArgs = {
+              inherit inputs;
+              hostName = "example-aarch64-darwin";
+              primaryUser = "example";
+            };
+
+            modules = [
+              ./hosts/example-aarch64-darwin
+              ./modules/darwin/vscode.nix
+              {
+                home-manager.users.example.imports = [ ./modules/home/vscode.nix ];
+              }
             ];
           }).system;
 
