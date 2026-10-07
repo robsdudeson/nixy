@@ -36,23 +36,28 @@ let
     ++ lib.optionals (cfg.highlightColor != null) [
       "sudo -u ${user} /usr/bin/defaults write NSGlobalDomain AppleHighlightColor -string '${cfg.highlightColor}'"
     ]
-    ++ lib.optionals (cfg.dockPersistentApps != [ ]) ([
-      # Clear first so repeated activations do not accumulate duplicate tiles.
-      "sudo -u ${user} /usr/bin/defaults write com.apple.dock persistent-apps -array"
-    ]
-    ++ lib.map dockTile cfg.dockPersistentApps);
+    ++ lib.optionals (cfg.dockPersistentApps != [ ]) (
+      [
+        # Clear first so repeated activations do not accumulate duplicate tiles.
+        "sudo -u ${user} /usr/bin/defaults write com.apple.dock persistent-apps -array"
+      ]
+      ++ lib.map dockTile cfg.dockPersistentApps
+    );
 
   script =
-    if lines == [ ] then "" else ''
-      echo "Applying macOS defaults for ${user}..."
-      ${lib.concatStringsSep "\n" lines}
+    if lines == [ ] then
+      ""
+    else
+      ''
+        echo "Applying macOS defaults for ${user}..."
+        ${lib.concatStringsSep "\n" lines}
 
-      # Restart the services that cache these preferences.
-      sudo -u ${user} /usr/bin/killall Dock || true
-      sudo -u ${user} /usr/bin/killall SystemUIServer || true
-      sudo -u ${user} /usr/bin/killall Finder || true
-      echo "macOS defaults applied"
-    '';
+        # Restart the services that cache these preferences.
+        sudo -u ${user} /usr/bin/killall Dock || true
+        sudo -u ${user} /usr/bin/killall SystemUIServer || true
+        sudo -u ${user} /usr/bin/killall Finder || true
+        echo "macOS defaults applied"
+      '';
 in
 {
   options.darwin.macosDefaults = {
@@ -107,7 +112,7 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = user != "";
+        assertion = user != null;
         message = "darwin.macosDefaults requires system.primaryUser to be set.";
       }
     ];

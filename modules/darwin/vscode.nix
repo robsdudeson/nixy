@@ -7,5 +7,8 @@
   # install the `vscode` Homebrew cask — Nix owns the app here.
   nixpkgs.overlays = [ inputs.nix-vscode-extensions.overlays.default ];
 
+  # pkgs.vscode carries an unfree license; evaluation is refused without this.
+  nixpkgs.config.allowUnfree = true;
+
   environment.systemPackages = [ pkgs.vscode ];
 }
