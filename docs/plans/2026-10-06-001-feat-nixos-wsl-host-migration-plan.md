@@ -513,7 +513,7 @@ Stop after U7–U8 until the real host dry-builds cleanly **on the live WSL dist
 
 ### Phase C — Cutover and decommission
 
-- [ ] U9. **Live switch on the WSL distro with verification checklist**
+- [x] U9. **Live switch on the WSL distro with verification checklist**
 
 **Goal:** The running `nixos-wsl` distro is configured by nixy-priv, verified end-to-end, with a known rollback path.
 
@@ -631,6 +631,7 @@ U9 checklist fully green and the host has been used normally (pi sessions, git c
 - **U6:** RFC1918 matcher + fixtures in check-public-safety; bootstrap.sh discovers both configuration types (Darwin-only path preserved); justfile `check` includes NixOS example dry-build + 7 module checks; docs updated. Full `just check` green.
 - **U7:** boundary verified (separate private GitHub repo, isPrivate=true, not nested under nixy). `mk-nixos-host.nix` mirrors the Darwin helper; flake follows nixy's five scoped inputs via `git+file:../nixy`.
 - **U8 / M2 (2026-10-07):** real host port reviewed line-by-line against source — all 10 git ignores, both op:// refs, command-backed auth key, PI_JEV_BASE_URL, both skill-manager services verbatim. Live-host dry-build passes (`nixos-system-nixos-wsl-26.05.20260910.d58a46e`); effective-config spot checks match source (identity, gpg ssh signing, credential helper, nix-switch repointed per R9). Two deliberate deltas: additive `pull.ff=only` + `push.autoSetupRemote=true` from the public git module base; `~/.pi/agent/{settings,models}.json` are force-managed (switch overwrites with the ported capture of live settings).
+- **U9 (2026-10-07):** switch run by the host owner in a separate shell; orchestrator verified on disk: active system is `nixos-system-nixos-wsl-26.05.20260910.d58a46e`; all 12 fish abbrs present with `nix-switch` pointing at nixy-priv; `~/.pi/agent/{settings,models,auth.base}.json` rewritten at switch time (21 packages, 4 providers verbatim), `auth.json` merged with the resolved unsloth key (pi-auth-merge ran), AGENTS.md identical to repo copy; git identity/gpg-ssh/credential-helper/op-ssh-sign-wsl.exe all in effect, commits carry gpgsig; skill-manager system+user services enabled, 22 skills linked in a real directory, `~/.agents` symlink intact; wsl.conf `[user] default=rd`, ssh-agent passthrough shows Windows keys; bun 1.4.2 / node v24.19.0 / python3 3.13.15 / gcc 15.2.0 / make 4.4.1 (node binary name identical to prior generation). Note: `git log --show-signature` cannot verify SSH signatures locally without `gpg.ssh.allowedSignersFile` — pre-existing host behavior, signatures themselves are present in commit objects.
 
 ---
 
