@@ -407,7 +407,7 @@ The public repo never references the private repo. The private repo follows all 
 
 Stop after U1–U5 until the public repo is fully green without any private data: `nix flake show --all-systems`, example NixOS host toplevel dry-build, all ported module checks, **locked revisions of the five NixOS inputs match nix-it-up's current `flake.lock`**, Darwin example + profile checks unchanged, bootstrap tests, and the extended `check-public-safety.sh` (including the new RFC1918 matcher from U6 if landed earlier — otherwise the existing scan plus a manual grep for RFC1918 literals). No nixy-priv work starts before M1 passes.
 
-- [ ] U6. **Extend tooling and docs for NixOS hosts**
+- [x] U6. **Extend tooling and docs for NixOS hosts**
 
 **Goal:** Bootstrap, justfile, safety scanning, and operational docs cover the NixOS path so a future agent can rebuild/update/rollback the WSL host from the new repos.
 
@@ -444,7 +444,7 @@ Stop after U1–U5 until the public repo is fully green without any private data
 
 ### Phase B — nixy-priv real host
 
-- [ ] U7. **Add `lib/mk-nixos-host.nix` and flake wiring in nixy-priv**
+- [x] U7. **Add `lib/mk-nixos-host.nix` and flake wiring in nixy-priv**
 
 **Goal:** nixy-priv can compose a NixOS WSL host with the same helper pattern as darwin, following all channel inputs from nixy's lockfile — and the private repo's boundary is verified before any private value lands.
 
@@ -475,7 +475,7 @@ Stop after U1–U5 until the public repo is fully green without any private data
 
 ---
 
-- [ ] U8. **Port the real nixos-wsl host config into nixy-priv**
+- [x] U8. **Port the real nixos-wsl host config into nixy-priv**
 
 **Goal:** The complete current behavior of the live host is expressed in nixy-priv — system-level and user-level — with all private values in place and the `nix-switch` abbr pointing at the new flake.
 
@@ -626,6 +626,11 @@ U9 checklist fully green and the host has been used normally (pi sessions, git c
 - **U2/U4:** `vscode.nix` needs the nix-vscode-extensions overlay for `pkgs.vscode-marketplace`. The live WSL host does NOT enable my.programs.vscode (VS Code runs on the Windows side, remote-WSL), so no such overlay is added to the public line and the example host does not import vscode.nix. Module header documents the requirement.
 - **U3:** `machine.common` keeps 6 generic packages; personal curation (fastfetch, gh, meslo-lgs-nf, neovim, nerd-fonts.fira-code) re-enters via new `machine.common.extraPackages` option in U8.
 - **U4:** example host eval + toplevel dry-build pass on x86_64-linux. Verified `gitIdentity` disabled path against real HM 26.05 eval (null `ignores` definition resolves to default — no type error).
+- **M1 (2026-10-07):** all gate items green — flake show, example toplevel dry-build, 7 module checks, locked-rev comparison vs nix-it-up (all five match), Darwin checks unchanged, bootstrap tests, safety scanner + manual RFC1918 grep.
+- **U5:** seven test files (fish 7, gh 4, git 7, pi-declarative 8, vscode 4, common 7, wsl 3 assertions) wired into `checks.x86_64-linux` via an eval-time `runModuleTest` helper that throws on failure.
+- **U6:** RFC1918 matcher + fixtures in check-public-safety; bootstrap.sh discovers both configuration types (Darwin-only path preserved); justfile `check` includes NixOS example dry-build + 7 module checks; docs updated. Full `just check` green.
+- **U7:** boundary verified (separate private GitHub repo, isPrivate=true, not nested under nixy). `mk-nixos-host.nix` mirrors the Darwin helper; flake follows nixy's five scoped inputs via `git+file:../nixy`.
+- **U8 / M2 (2026-10-07):** real host port reviewed line-by-line against source — all 10 git ignores, both op:// refs, command-backed auth key, PI_JEV_BASE_URL, both skill-manager services verbatim. Live-host dry-build passes (`nixos-system-nixos-wsl-26.05.20260910.d58a46e`); effective-config spot checks match source (identity, gpg ssh signing, credential helper, nix-switch repointed per R9). Two deliberate deltas: additive `pull.ff=only` + `push.autoSetupRemote=true` from the public git module base; `~/.pi/agent/{settings,models}.json` are force-managed (switch overwrites with the ported capture of live settings).
 
 ---
 
