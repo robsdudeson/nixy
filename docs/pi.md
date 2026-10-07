@@ -33,6 +33,33 @@ Manual (you, once per machine, after a switch):
 Nix does not own the `pi` binary, extensions, skills, session history, or
 provider authentication. Treat those as first-run steps, not build output.
 
+## NixOS declarative variant
+
+NixOS hosts can opt into `modules/home/pi-declarative.nix` instead of the
+Darwin Bun-imperative path described above. That variant installs the packaged
+`pi-coding-agent` from the public overlay in `modules/nixos/overlays.nix`, so
+hosts do not run `bun install -g` for the `pi` binary.
+
+The declarative NixOS module can manage base `~/.pi/agent/settings.json`,
+`models.json`, `auth.base.json`, and `AGENTS.md` files. Host-specific package
+choices, provider entries, and auth metadata still belong in `nixy-priv`, not
+in public defaults.
+
+When `authBase` is configured, the `pi-auth-merge` user service merges
+`auth.base.json` into writable `auth.json` at login. API-key entries whose
+`key` value starts with `!` are command-backed: the service runs the command at
+login, writes the resolved key into `auth.json`, and fails loudly if resolution
+returns no value. This keeps secret resolution at runtime instead of during Nix
+evaluation.
+
+Hosts may also enable the optional `pi-package-reconcile` user service to run
+`pi update --extensions` after activation/login. It is off by default because it
+is networked and mutates Pi's writable package state.
+
+The Darwin path in `modules/home/pi.nix` is unchanged: Bun, Node.js, and the
+non-secret environment are declarative, while installing the `pi` binary and
+LazyPi packages remains a manual first-run step.
+
 ## Enabling this on a host
 
 Public `nixy` does not enable pi on the public example host by default. A

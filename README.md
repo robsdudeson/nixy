@@ -1,25 +1,26 @@
 # nixy
 
-Public-safe macOS workstation configuration with Determinate Nix, nix-darwin, and Home Manager.
+Public-safe workstation configuration for macOS and NixOS WSL2 hosts with Determinate Nix, nix-darwin, NixOS, and Home Manager.
 
 This repo is the reusable base. Real machine names, real user names, work-only apps, private taps, and secret references belong in the sibling private repo, `nixy-priv`.
 
 ## Current status
 
-The public flake exposes one build-safe Apple Silicon example host:
+The public flake exposes build-safe example hosts for Apple Silicon Darwin and NixOS WSL2:
 
 ```sh
 nix flake show
 nix build .#darwinConfigurations.example-aarch64-darwin.system --dry-run
+nix build .#nixosConfigurations.example-x86_64-linux.config.system.build.toplevel --dry-run
 ```
 
-Do not run `darwin-rebuild switch` against the public example unless the Mac has an existing user named `example`. For a real Mac, define the real host and existing macOS user in `nixy-priv` or in a local ignored override.
+Do not run `darwin-rebuild switch` or `nixos-rebuild switch` against public examples unless the machine has the matching fake-safe user. For a real machine, define the real host and existing user in `nixy-priv` as a `darwinConfigurations` or `nixosConfigurations` output, or use a local ignored override.
 
 ## Bootstrap script
 
 For guided setup, use `scripts/bootstrap.sh`. It validates the repo layout,
-confirms the `nixy-priv` sibling is present, discovers real hosts, dry-builds
-the selected host, and prompts before switching:
+confirms the `nixy-priv` sibling is present, discovers real Darwin and NixOS
+hosts, dry-builds the selected host, and prompts before switching:
 
 ```sh
 ./scripts/bootstrap.sh
@@ -51,7 +52,7 @@ Manual steps (without the script):
    ```
 
 2. Build the real private host from `nixy-priv` before switching.
-3. Switch only after the build succeeds and the host config names an existing macOS user.
+3. Switch only after the build succeeds and the host config names an existing user.
 
 See [`docs/operations.md`](docs/operations.md) for rebuild, rollback, update, and existing-Mac adoption notes.
 
@@ -105,6 +106,7 @@ If `just` is installed:
 just bootstrap            # guided setup (validate, discover hosts, build, switch)
 just show
 just build-example
+just build-example-nixos
 just check-public-safety
 ```
 

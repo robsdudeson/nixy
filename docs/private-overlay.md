@@ -1,6 +1,6 @@
 # Private overlay contract
 
-The public repo must evaluate without private files. The private repo, `nixy-priv`, imports this repo and defines real hosts.
+The public repo must evaluate without private files. The private repo, `nixy-priv`, imports this repo and defines real Darwin and NixOS hosts.
 
 For 1Password specifically, see
 [`docs/onepassword.md`](onepassword.md#existing-mac-adoption) for adopting a
@@ -31,7 +31,7 @@ guides you through the build-then-switch flow. See
 Put these in the private repo:
 
 - Real hostnames.
-- Real macOS user names.
+- Real macOS or NixOS user names.
 - Work-only apps and private app inventory.
 - Private Homebrew taps.
 - Identity config.
@@ -62,6 +62,12 @@ The Nix store is readable by local users. Store secret material in a secret mana
 
 `nixy-priv` should import this repo as an input and compose real hosts from public modules and profiles. Keep the public repo as a base, not as a caller of private code.
 
+Darwin hosts expose `darwinConfigurations.<host>`. NixOS hosts follow the same
+contract through `nixosConfigurations.<host>` and the private `mk-nixos-host`
+helper. Real hostnames, users, and host-specific values stay private. Real
+`op://<vault>/<item>/<field>` references are allowed only in private files (or
+local ignored files), never in public `nixy`.
+
 A private host can use this shape:
 
 ```nix
@@ -76,6 +82,7 @@ Use a local path override while developing if needed:
 
 ```sh
 nix build .#darwinConfigurations.<host>.system --override-input nixy path:../nixy
+nix build .#nixosConfigurations.<host>.config.system.build.toplevel --override-input nixy path:../nixy
 ```
 
 Do not commit a public lock file that points at a private path, private Git URL, or machine-local checkout.

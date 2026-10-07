@@ -7,7 +7,7 @@
 # Options:
 #   --repo <path>          Public nixy checkout path (default: ~/code/nixy; env: NIXY_REPO)
 #   --private-repo <path>  Private nixy-priv path (default: sibling of public repo; env: NIXY_PRIV_REPO)
-#   --host <name>          Private Darwin host to build/apply (skips interactive prompt)
+#   --host <name>          Private Darwin or NixOS host to build/apply (skips interactive prompt)
 #   --build-only           Build the selected host but do not offer a switch
 #   --dry-run              Same as --build-only
 #   --help                 Show this help text
@@ -33,8 +33,8 @@ Usage: bootstrap.sh [options]
 Options:
   --repo <path>          Public nixy checkout (default: ~/code/nixy; env: NIXY_REPO)
   --private-repo <path>  Private nixy-priv path (default: sibling of public repo; env: NIXY_PRIV_REPO)
-  --host <name>          Darwin host to build/apply (skips interactive prompt)
-  --build-only           Build only; do not offer darwin-rebuild switch
+  --host <name>          Darwin or NixOS host to build/apply (skips interactive prompt)
+  --build-only           Build only; do not offer a switch
   --dry-run              Same as --build-only
   --help                 Show this help
 
@@ -215,24 +215,25 @@ echo "  Private repo: $private_repo_path"
 
 info "Discovering Darwin hosts in nixy-priv..."
 
-# Use nix eval to extract darwinConfigurations output names.
+# Use nix eval to extract configuration output names.
 # Falls back to nix flake show --json if eval is unavailable.
 discover_hosts() {
 	local priv=$1
+	local output=$2
 	local hosts=()
 	local raw
 
 	# Try nix eval first (cheaper: no build, just attr evaluation).
-	if raw=$(nix eval --json "$priv#darwinConfigurations" --apply 'builtins.attrNames' 2>/dev/null); then
+	if raw=$(nix eval --json "$priv#$output" --apply 'builtins.attrNames' 2>/dev/null); then
 		# Parse the JSON array with basic shell processing.
 		# Strip [ " ] chars and split on commas/spaces.
-		raw="${raw//[\"[\\]]/}"
+		raw=$(printf '%s' "$raw" | tr -d '[]"')
 		raw="${raw//,/ }"
 		for h in $raw; do
 			[[ -n "$h" ]] && hosts+=("$h")
 		done
 	elif raw=$(nix flake show --json "$priv" 2>/dev/null); then
-		# Fall back to flake show JSON: extract darwinConfigurations keys.
+		# Fall back to flake show JSON: extract configuration keys.
 		# Portable extraction without jq.
 		while IFS= read -r line; do
 			if [[ "$line" =~ \"([^\"]+)\":[[:space:]]*\{ ]]; then
@@ -241,7 +242,7 @@ discover_hosts() {
 		done < <(echo "$raw" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-dc = data.get('darwinConfigurations', {})
+dc = data.get('$output', {})
 for k in dc:
     print(k)
 " 2>/dev/null || true)
@@ -251,66 +252,154 @@ for k in dc:
 }
 
 PUBLIC_EXAMPLE_HOST="example-aarch64-darwin"
+PUBLIC_EXAMPLE_NIXOS_HOST="example-x86_64-linux"
 
-all_hosts=()
+all_darwin_hosts=()
 while IFS= read -r h; do
-	[[ -n "$h" ]] && all_hosts+=("$h")
-done < <(discover_hosts "$private_repo_path")
+	[[ -n "$h" ]] && all_darwin_hosts+=("$h")
+done < <(discover_hosts "$private_repo_path" darwinConfigurations)
 
-# Filter out the public example host if it somehow appears (dev override).
-real_hosts=()
-for h in "${all_hosts[@]+"${all_hosts[@]}"}"; do
+all_nixos_hosts=()
+while IFS= read -r h; do
+	[[ -n "$h" ]] && all_nixos_hosts+=("$h")
+done < <(discover_hosts "$private_repo_path" nixosConfigurations)
+
+# Filter out public example hosts if they somehow appear (dev override).
+real_darwin_hosts=()
+for h in "${all_darwin_hosts[@]+"${all_darwin_hosts[@]}"}"; do
 	if [[ "$h" != "$PUBLIC_EXAMPLE_HOST" ]]; then
-		real_hosts+=("$h")
+		real_darwin_hosts+=("$h")
 	fi
 done
 
-if [[ ${#real_hosts[@]} -eq 0 ]]; then
-	err "No private Darwin hosts found in nixy-priv."
-	echo ""
-	echo "  Add a darwinConfigurations.<host> output to your nixy-priv flake."
-	echo "  See docs/private-overlay.md and docs/operations.md#adding-a-host."
-	exit 1
-fi
+real_nixos_hosts=()
+for h in "${all_nixos_hosts[@]+"${all_nixos_hosts[@]}"}"; do
+	if [[ "$h" != "$PUBLIC_EXAMPLE_NIXOS_HOST" ]]; then
+		real_nixos_hosts+=("$h")
+	fi
+done
 
-if [[ -n "$chosen_host" ]]; then
-	# Validate the explicitly supplied host exists.
-	found=0
-	for h in "${real_hosts[@]}"; do
-		if [[ "$h" == "$chosen_host" ]]; then
-			found=1
-			break
-		fi
-	done
-	if [[ $found -eq 0 ]]; then
-		err "Host '$chosen_host' not found in nixy-priv darwinConfigurations."
+chosen_type="darwin"
+
+if [[ ${#real_nixos_hosts[@]} -eq 0 ]]; then
+	# Darwin-only compatibility path: keep prompts and messages unchanged.
+	real_hosts=("${real_darwin_hosts[@]+"${real_darwin_hosts[@]}"}")
+
+	if [[ ${#real_hosts[@]} -eq 0 ]]; then
+		err "No private Darwin hosts found in nixy-priv."
 		echo ""
-		echo "  Available hosts:"
+		echo "  Add a darwinConfigurations.<host> output to your nixy-priv flake."
+		echo "  See docs/private-overlay.md and docs/operations.md#adding-a-host."
+		exit 1
+	fi
+
+	if [[ -n "$chosen_host" ]]; then
+		# Validate the explicitly supplied host exists.
+		found=0
 		for h in "${real_hosts[@]}"; do
-			echo "    $h"
+			if [[ "$h" == "$chosen_host" ]]; then
+				found=1
+				break
+			fi
 		done
-		exit 1
+		if [[ $found -eq 0 ]]; then
+			err "Host '$chosen_host' not found in nixy-priv darwinConfigurations."
+			echo ""
+			echo "  Available hosts:"
+			for h in "${real_hosts[@]}"; do
+				echo "    $h"
+			done
+			exit 1
+		fi
+		echo "  Using host: $chosen_host"
+	elif [[ ${#real_hosts[@]} -eq 1 ]]; then
+		chosen_host="${real_hosts[0]}"
+		echo "  One private host found. Using: $chosen_host"
+	else
+		echo ""
+		echo "  Available private hosts:"
+		for i in "${!real_hosts[@]}"; do
+			printf '    %d) %s\n' "$((i + 1))" "${real_hosts[$i]}"
+		done
+		echo ""
+		read -r -p "  Select host number: " selection
+		if ! [[ "$selection" =~ ^[0-9]+$ ]] ||
+			[[ "$selection" -lt 1 ]] ||
+			[[ "$selection" -gt ${#real_hosts[@]} ]]; then
+			err "Invalid selection: $selection"
+			exit 1
+		fi
+		chosen_host="${real_hosts[$((selection - 1))]}"
+		echo "  Selected: $chosen_host"
 	fi
-	echo "  Using host: $chosen_host"
-elif [[ ${#real_hosts[@]} -eq 1 ]]; then
-	chosen_host="${real_hosts[0]}"
-	echo "  One private host found. Using: $chosen_host"
 else
-	echo ""
-	echo "  Available private hosts:"
-	for i in "${!real_hosts[@]}"; do
-		printf '    %d) %s\n' "$((i + 1))" "${real_hosts[$i]}"
+	real_hosts=()
+	for h in "${real_darwin_hosts[@]+"${real_darwin_hosts[@]}"}"; do
+		real_hosts+=("darwin::$h")
 	done
-	echo ""
-	read -r -p "  Select host number: " selection
-	if ! [[ "$selection" =~ ^[0-9]+$ ]] ||
-		[[ "$selection" -lt 1 ]] ||
-		[[ "$selection" -gt ${#real_hosts[@]} ]]; then
-		err "Invalid selection: $selection"
+	for h in "${real_nixos_hosts[@]+"${real_nixos_hosts[@]}"}"; do
+		real_hosts+=("nixos::$h")
+	done
+
+	if [[ ${#real_hosts[@]} -eq 0 ]]; then
+		err "No private hosts found in nixy-priv."
+		echo ""
+		echo "  Add a darwinConfigurations.<host> or nixosConfigurations.<host> output to your nixy-priv flake."
+		echo "  See docs/private-overlay.md and docs/operations.md#adding-a-host."
 		exit 1
 	fi
-	chosen_host="${real_hosts[$((selection - 1))]}"
-	echo "  Selected: $chosen_host"
+
+	if [[ -n "$chosen_host" ]]; then
+		# Validate the explicitly supplied host exists.
+		found=0
+		for entry in "${real_hosts[@]}"; do
+			host_type=${entry%%::*}
+			host_name=${entry#*::}
+			if [[ "$host_name" == "$chosen_host" ]]; then
+				found=1
+				chosen_type=$host_type
+				break
+			fi
+		done
+		if [[ $found -eq 0 ]]; then
+			err "Host '$chosen_host' not found in nixy-priv configurations."
+			echo ""
+			echo "  Available hosts:"
+			for entry in "${real_hosts[@]}"; do
+				host_type=${entry%%::*}
+				host_name=${entry#*::}
+				echo "    $host_name ($host_type)"
+			done
+			exit 1
+		fi
+		echo "  Using host: $chosen_host"
+	elif [[ ${#real_hosts[@]} -eq 1 ]]; then
+		entry=${real_hosts[0]}
+		chosen_type=${entry%%::*}
+		chosen_host=${entry#*::}
+		echo "  One private host found. Using: $chosen_host"
+	else
+		echo ""
+		echo "  Available private hosts:"
+		for i in "${!real_hosts[@]}"; do
+			entry=${real_hosts[$i]}
+			host_type=${entry%%::*}
+			host_name=${entry#*::}
+			printf '    %d) %s (%s)\n' "$((i + 1))" "$host_name" "$host_type"
+		done
+		echo ""
+		read -r -p "  Select host number: " selection
+		if ! [[ "$selection" =~ ^[0-9]+$ ]] ||
+			[[ "$selection" -lt 1 ]] ||
+			[[ "$selection" -gt ${#real_hosts[@]} ]]; then
+			err "Invalid selection: $selection"
+			exit 1
+		fi
+		entry=${real_hosts[$((selection - 1))]}
+		chosen_type=${entry%%::*}
+		chosen_host=${entry#*::}
+		echo "  Selected: $chosen_host"
+	fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -319,7 +408,11 @@ fi
 
 info "Building $chosen_host (dry-run)..."
 
-flake_ref="$private_repo_path#darwinConfigurations.$chosen_host.system"
+if [[ "$chosen_type" == "nixos" ]]; then
+	flake_ref="$private_repo_path#nixosConfigurations.$chosen_host.config.system.build.toplevel"
+else
+	flake_ref="$private_repo_path#darwinConfigurations.$chosen_host.system"
+fi
 
 nix build "$flake_ref" --dry-run
 
@@ -330,7 +423,9 @@ if [[ $build_only -eq 1 ]]; then
 	echo "  --build-only: skipping switch."
 	echo ""
 	echo "  To apply this host, run:"
-	if command -v darwin-rebuild >/dev/null 2>&1; then
+	if [[ "$chosen_type" == "nixos" ]]; then
+		echo "    sudo nixos-rebuild switch --flake $private_repo_path#$chosen_host"
+	elif command -v darwin-rebuild >/dev/null 2>&1; then
 		echo "    sudo darwin-rebuild switch --flake $private_repo_path#$chosen_host"
 	else
 		echo "    sudo nix run nix-darwin#darwin-rebuild -- switch --flake $private_repo_path#$chosen_host"
@@ -339,7 +434,9 @@ if [[ $build_only -eq 1 ]]; then
 fi
 
 echo ""
-if command -v darwin-rebuild >/dev/null 2>&1; then
+if [[ "$chosen_type" == "nixos" ]]; then
+	switch_cmd="sudo nixos-rebuild switch --flake $private_repo_path#$chosen_host"
+elif command -v darwin-rebuild >/dev/null 2>&1; then
 	switch_cmd="sudo darwin-rebuild switch --flake $private_repo_path#$chosen_host"
 else
 	switch_cmd="sudo nix run nix-darwin#darwin-rebuild -- switch --flake $private_repo_path#$chosen_host"

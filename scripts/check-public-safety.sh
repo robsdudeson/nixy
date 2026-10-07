@@ -30,6 +30,7 @@ declare -a checks=(
 	'real email::[A-Za-z0-9._%+-]+@(gmail\.com|corp|company|work)'
 	'realistic 1Password reference::op://[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+'
 	'1Password account sign-in URL::[a-z0-9][a-z0-9-]*\.1password\.com/(signin|vaults|people|activity|item)'
+	'RFC1918 private IPv4 literal::(10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3})'
 )
 
 for file in "${files[@]}"; do

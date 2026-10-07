@@ -29,9 +29,9 @@ flow below. It handles:
   `--repo <path>` or `NIXY_REPO`).
 - Confirming the `nixy-priv` sibling checkout exists (override with
   `--private-repo <path>` or `NIXY_PRIV_REPO`).
-- Discovering real `darwinConfigurations` from `nixy-priv` at runtime.
+- Discovering real `darwinConfigurations` and `nixosConfigurations` from `nixy-priv` at runtime.
 - Dry-building the selected host before offering a switch.
-- Prompting for explicit confirmation (`y/N`) before any `darwin-rebuild switch`.
+- Prompting for explicit confirmation (`y/N`) before any system switch.
 - Printing the [1Password first-run checklist](onepassword.md#first-run-checklist)
   pointer after a successful switch on 1Password-enabled hosts.
 
@@ -104,6 +104,48 @@ sudo darwin-rebuild switch --flake .#<host>
 
 Review `flake.lock` before committing. Public lock files must not contain private Git URLs or private path inputs.
 
+## NixOS WSL hosts
+
+NixOS WSL hosts live in `nixy-priv` as `nixosConfigurations`. Rebuild from the
+private repo path, or pass that path explicitly:
+
+```sh
+nix flake show <nixy-priv-path>
+nix build <nixy-priv-path>#nixosConfigurations.<host>.config.system.build.toplevel --dry-run
+sudo nixos-rebuild switch --flake <nixy-priv-path>#<host>
+```
+
+For input updates, update only the scoped inputs you intend to move, then
+rebuild before switching:
+
+```sh
+nix flake update nixpkgs-nixos
+nix flake update home-manager-nixos
+nix flake update nixos-wsl
+nix flake update pi
+nix flake update nixpkgs-bun
+nix build .#nixosConfigurations.<host>.config.system.build.toplevel --dry-run
+```
+
+The scoped 26.05 line is migration-sensitive. Re-verify any update against the
+migration gates in
+[`docs/plans/2026-10-06-001-feat-nixos-wsl-host-migration-plan.md`](plans/2026-10-06-001-feat-nixos-wsl-host-migration-plan.md)
+before switching a real WSL host.
+
+Rollback uses NixOS generations:
+
+```sh
+sudo nixos-rebuild list-generations
+sudo nixos-rebuild roll-back
+```
+
+Add another NixOS host in `nixy-priv` with its `mk-nixos-host` helper, keeping
+real hostnames, users, and private values out of public `nixy`.
+
+WSL-specific caveat: changing `wsl.defaultUser` requires the boot, terminate,
+and root-start flow documented by the NixOS-WSL project. Do not treat it as a
+normal rebuild-only change.
+
 ## Rollback
 
 Nix and nix-darwin generations can roll back. Homebrew casks, MAS apps, and macOS defaults are not fully rollback-safe and may need manual cleanup.
@@ -144,8 +186,8 @@ Do not use destructive Homebrew cleanup during early adoption.
 For a real host, add it in `nixy-priv`:
 
 1. Import this public repo.
-2. Define `darwinConfigurations.<host>` in the private flake.
-3. Set the real existing macOS user there.
+2. Define `darwinConfigurations.<host>` or `nixosConfigurations.<host>` in the private flake.
+3. Set the real existing macOS or NixOS user there.
 4. Import public modules and profiles from this repo.
 5. Keep real hostnames, private app lists, private taps, and secret references out of this repo.
 

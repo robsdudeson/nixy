@@ -60,6 +60,9 @@ assert_pass "nixy-priv repo name alone" \
 assert_pass "generic 1Password docs URL" \
 	'See https://developer.1password.com/docs/cli/get-started/'
 
+assert_pass "RFC1918 prose without literal IP" \
+	'Docs may mention RFC1918 ranges without naming a concrete address.'
+
 assert_fail "realistic op:// reference" \
 	'EXAMPLE_VALUE=op://Engineering/github-pat/credential'
 
@@ -77,6 +80,9 @@ assert_fail "token assignment" \
 
 assert_fail "uppercase env-var-style secret assignment" \
 	'MY_SECRET=abc123'
+
+assert_fail "RFC1918 private IPv4 literal" \
+	'baseUrl = "http://192.168.1.57:11434/v1";'
 
 rm -f "$workdir/fixture.md"
 git -C "$workdir" add -A
