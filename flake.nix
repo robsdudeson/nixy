@@ -54,6 +54,22 @@
     let
       system = "aarch64-darwin";
       pkgs = nixpkgs.legacyPackages.${system};
+      nixosSystem = "x86_64-linux";
+      nixosPkgs = inputs.nixpkgs-nixos.legacyPackages.${nixosSystem};
+      runModuleTest =
+        name: file:
+        let
+          result = import file { pkgs = nixosPkgs; };
+        in
+        nixosPkgs.runCommand name { } (
+          if result.success then
+            ''
+              echo ${nixosPkgs.lib.escapeShellArg result.message}
+              touch $out
+            ''
+          else
+            throw "${name} FAILED: ${result.message}"
+        );
     in
     {
       darwinConfigurations.example-aarch64-darwin = nix-darwin.lib.darwinSystem {
@@ -73,20 +89,19 @@
       # Fake-safe NixOS WSL host on the scoped 26.05 line (see
       # hosts/example-x86_64-linux/). Proves the public composition: inputs,
       # overlay, machine modules, and home modules — no private data.
-      nixosConfigurations.example-x86_64-linux =
-        inputs.nixpkgs-nixos.lib.nixosSystem {
-          system = "x86_64-linux";
+      nixosConfigurations.example-x86_64-linux = inputs.nixpkgs-nixos.lib.nixosSystem {
+        system = "x86_64-linux";
 
-          specialArgs = {
-            inherit inputs;
-            hostName = "example-x86_64-linux";
-            primaryUser = "example";
-          };
-
-          modules = [
-            ./hosts/example-x86_64-linux
-          ];
+        specialArgs = {
+          inherit inputs;
+          hostName = "example-x86_64-linux";
+          primaryUser = "example";
         };
+
+        modules = [
+          ./hosts/example-x86_64-linux
+        ];
+      };
 
       formatter.${system} = pkgs.nixfmt-rfc-style;
 
@@ -180,8 +195,15 @@
       # NixOS side: full toplevel build of the example WSL host on the
       # scoped 26.05 line (separate system from the darwin checks above).
       checks.x86_64-linux = {
-        example-x86_64-linux =
-          self.nixosConfigurations.example-x86_64-linux.config.system.build.toplevel;
+        example-x86_64-linux = self.nixosConfigurations.example-x86_64-linux.config.system.build.toplevel;
+
+        fish-test = runModuleTest "fish-module-test" ./tests/home/fish-test.nix;
+        gh-test = runModuleTest "gh-module-test" ./tests/home/gh-test.nix;
+        git-test = runModuleTest "git-module-test" ./tests/home/git-test.nix;
+        pi-declarative-test = runModuleTest "pi-declarative-module-test" ./tests/home/pi-declarative-test.nix;
+        vscode-test = runModuleTest "vscode-module-test" ./tests/home/vscode-test.nix;
+        common-test = runModuleTest "common-module-test" ./tests/nixos/common-test.nix;
+        wsl-test = runModuleTest "wsl-module-test" ./tests/nixos/wsl-test.nix;
       };
     };
 }
