@@ -550,7 +550,7 @@ Stop after U7–U8 until the real host dry-builds cleanly **on the live WSL dist
 
 U9 checklist fully green and the host has been used normally (pi sessions, git commits, skills sync) without regressions. Only then may U10 start.
 
-- [ ] U10. **Decommission nixos-wsl from nix-it-up**
+- [x] U10. **Decommission nixos-wsl from nix-it-up**
 
 **Goal:** Single source of truth: `nixos-wsl` is configured only by nixy-priv; all other nix-it-up hosts are unaffected.
 
@@ -632,6 +632,7 @@ U9 checklist fully green and the host has been used normally (pi sessions, git c
 - **U7:** boundary verified (separate private GitHub repo, isPrivate=true, not nested under nixy). `mk-nixos-host.nix` mirrors the Darwin helper; flake follows nixy's five scoped inputs via `git+file:../nixy`.
 - **U8 / M2 (2026-10-07):** real host port reviewed line-by-line against source — all 10 git ignores, both op:// refs, command-backed auth key, PI_JEV_BASE_URL, both skill-manager services verbatim. Live-host dry-build passes (`nixos-system-nixos-wsl-26.05.20260910.d58a46e`); effective-config spot checks match source (identity, gpg ssh signing, credential helper, nix-switch repointed per R9). Two deliberate deltas: additive `pull.ff=only` + `push.autoSetupRemote=true` from the public git module base; `~/.pi/agent/{settings,models}.json` are force-managed (switch overwrites with the ported capture of live settings).
 - **U9 (2026-10-07):** switch run by the host owner in a separate shell; orchestrator verified on disk: active system is `nixos-system-nixos-wsl-26.05.20260910.d58a46e`; all 12 fish abbrs present with `nix-switch` pointing at nixy-priv; `~/.pi/agent/{settings,models,auth.base}.json` rewritten at switch time (21 packages, 4 providers verbatim), `auth.json` merged with the resolved unsloth key (pi-auth-merge ran), AGENTS.md identical to repo copy; git identity/gpg-ssh/credential-helper/op-ssh-sign-wsl.exe all in effect, commits carry gpgsig; skill-manager system+user services enabled, 22 skills linked in a real directory, `~/.agents` symlink intact; wsl.conf `[user] default=rd`, ssh-agent passthrough shows Windows keys; bun 1.4.2 / node v24.19.0 / python3 3.13.15 / gcc 15.2.0 / make 4.4.1 (node binary name identical to prior generation). Note: `git log --show-signature` cannot verify SSH signatures locally without `gpg.ssh.allowedSignersFile` — pre-existing host behavior, signatures themselves are present in commit objects.
+- **U10 (2026-10-07):** decommissioned in nix-it-up commit `02a78bb` — removed `nixosConfigurations.nixos-wsl`, `hosts/nixos-wsl/`, and the five inputs used exclusively by that host (`nixpkgs-26`, `home-manager-26`, `nixos-wsl-26`, `pi`, `nixpkgs-bun` + bun PR-head TODO); README/CONTEXT/HOSTS docs now point at nixy-priv with the rebuild shape. Gate: `nix flake show` lists only home-nas, nixos-utm-vm, nixos-wsl2 (+ darwin unknown on Linux); flake.lock diff is orphan-node removal plus the root child list — no remaining rev moved. **Pre-existing wsl2 issue found during the gate (user decision: track separately):** `hosts/nixos-wsl2/configuration.nix` sets `wsl.ssh-agent.enable = true`, but that option exists only in NixOS-WSL 26.05-line revisions, so wsl2's toplevel dry-build fails on main both before and after U10 (verified on the clean pre-change tree); wsl2 evaluation itself is unaffected.
 
 ---
 
