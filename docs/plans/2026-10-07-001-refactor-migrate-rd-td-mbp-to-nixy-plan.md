@@ -251,7 +251,7 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 
 ---
 
-- [ ] U2. **Wire Homebrew and 1Password into the real Darwin host**
+- [x] U2. **Wire Homebrew and 1Password into the real Darwin host**
 
 **Goal:** Restore Homebrew ownership and 1Password app/CLI/SSH-agent support in the new host using existing public modules.
 
@@ -283,7 +283,7 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 
 ---
 
-- [ ] U3. **Restore shell, package, font, and editor baseline**
+- [x] U3. **Restore shell, package, font, and editor baseline**
 
 **Goal:** Bring the old CLI/system baseline into the new host without fighting current `nixy` module boundaries.
 
@@ -315,7 +315,7 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 
 ---
 
-- [ ] U4. **Restore Git identity, SSH signing, and 1Password SSH behavior**
+- [x] U4. **Restore Git identity, SSH signing, and 1Password SSH behavior**
 
 **Goal:** Replace the legacy `my.programs.git`/`my.programs.ssh` setup with current `nixy` Home Manager modules.
 
@@ -348,7 +348,7 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 
 ---
 
-- [ ] U5. **Decide and implement VS Code management path**
+- [x] U5. **Decide and implement VS Code management path**
 
 **Goal:** Restore old VS Code settings/extensions only after the extension source and package ownership are explicit.
 
@@ -383,7 +383,7 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 
 ---
 
-- [ ] U6. **Restore selected macOS defaults and activation-time preferences**
+- [x] U6. **Restore selected macOS defaults and activation-time preferences**
 
 **Goal:** Carry forward old macOS UI/defaults behavior in a safer, reviewable module shape.
 
@@ -483,6 +483,59 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 
 ---
 
+## Progress Log
+
+### 2026-10-07 — U2-U6 implementation complete (dry-build green)
+
+**Public `nixy` commits (main):**
+- `deec4ee` feat(darwin): add vscode and macos-defaults modules (U5/U6 public side, plus `nix-vscode-extensions` input).
+- `f150f87` fix(darwin): pass `inputs` to the Home Manager user evaluation via
+  `home-manager.extraSpecialArgs`. Root cause of the "infinite recursion"
+  seen while wiring `users/rd.nix`: user modules that import nixy modules via
+  `"${inputs.nixy}/..."` strings need the flake inputs inside the HM evaluation
+  context. Without them the module system falls back to `_module.args`, which
+  forces `config` and recurses. The private NixOS host already worked around
+  this in its host file; the fix moves it into the public Darwin module so all
+  Darwin hosts get it. Same commit: `nixpkgs.config.allowUnfree = true` in the
+  vscode module (it declares `pkgs.vscode`) and a null-check fix for the
+  macos-defaults `primaryUser` assertion.
+- `8bdad01` + `f6dda6d` users/example.nix: `home.stateVersion` is now
+  `lib.mkDefault "25.11"` so a private host can pin the legacy anchor.
+
+**Private `nixy-priv` (uncommitted at log time):**
+- `hosts/rd-mbp-MRX43R2HDH/default.nix`: full composition — determinate,
+  home-manager, homebrew (non-destructive), macos-defaults, vscode, minimal,
+  onepassword, pi, llama-server profiles; fish user shell + system zsh/fish;
+  legacy CLI/font package baseline; Touch ID sudo; carried-over cask list
+  (brave, ghostty, notion, rectangle, slack, steam; 1Password via profile);
+  declarative `system.defaults`; `darwin.macosDefaults` activation block with
+  the legacy dock app list; llama-server service preserved.
+- `users/rd.nix`: fish/gh/vscode home modules; `home.stateVersion = "25.05"`
+  (legacy anchor, avoids running newer HM migrations on adoption);
+  `gitIdentity` with real name/email/signing key, `op-ssh-sign`,
+  `workstationDefaults = false`, legacy extra ignores; full legacy git alias
+  set via `programs.git.settings.alias` (the old `programs.git.aliases`
+  option is deprecated). 1Password SSH agent socket comes from
+  `profiles/onepassword.nix`.
+- `lib/mk-darwin-host.nix`: user module now imported at top level
+  (`imports = [ (import userModule) ]`), mirroring `mk-nixos-host.nix`.
+- `flake.lock`: `nixy` updated to `f6dda6d`; `nix-vscode-extensions` and
+  `nix-homebrew` follows added in `flake.nix`.
+
+**Validation (Linux dev box, cross-eval/dry-build only):**
+- `nixy`: `checks.aarch64-darwin.example-aarch64-darwin`,
+  `example-aarch64-darwin-vscode`, `x86_64-linux.git-test`,
+  `x86_64-linux.vscode-test` all pass (dry-run); public-safety script passes.
+- `nixy-priv`: `.#darwinConfigurations.rd-mbp-MRX43R2HDH.system --dry-run`
+  passes; rendered HM user config verified (identity, aliases, ignores,
+  stateVersion 25.05, vscode/gh/fish enabled); WSL check still passes.
+
+**Remaining:** U7 switch on the target Mac (`sudo darwin-rebuild switch
+--flake .#rd-mbp-MRX43R2HDH`), post-switch 1Password/SSH manual checks, then
+U8 decommission of the legacy nested flake in `nix-it-up`.
+
+---
+
 ## Suggested Sequencing
 
 1. U1: classify old behavior and make app/default decisions.
@@ -510,10 +563,9 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 
 Before implementation is considered complete:
 
-- [ ] `nixy` Nix files are formatted with `nixfmt-rfc-style`.
-- [ ] `nixy-priv` Nix files are formatted with `nixfmt-rfc-style`.
-- [ ] `nixy` relevant checks pass.
-- [ ] `nixy-priv#rd-mbp-MRX43R2HDH` dry-builds.
+- [x] `nixy` Nix files are formatted with `nixfmt-rfc-style` (run via `nix fmt`; nixy-priv uses the same formatter through its flake).
+- [x] `nixy` relevant checks pass.
+- [x] `nixy-priv#rd-mbp-MRX43R2HDH` dry-builds.
 - [ ] Selected old `rd-td-mbp` behaviors are either rendered in the new host or explicitly deferred/dropped.
 - [ ] No public `nixy` file contains real hostnames, private app inventory, signing keys, secret refs, or user identity.
 - [ ] No Nix file resolves or embeds secret values.
