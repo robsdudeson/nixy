@@ -448,7 +448,7 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 
 ---
 
-- [ ] U8. **Retire the legacy nested Darwin flake from `nix-it-up` after adoption**
+- [x] U8. **Retire the legacy nested Darwin flake from `nix-it-up` after adoption**
 
 **Goal:** Remove the old `rd-td-mbp` management surface once `nixy-priv` is the source of truth.
 
@@ -552,6 +552,21 @@ darwin example checks all green. Both repos pushed.
 
 **Remaining:** U7 switch on the target Mac + post-switch 1Password/SSH
 checks, then U8 decommission of the legacy nested flake in `nix-it-up`.
+
+### 2026-10-08 — U8: legacy nested Darwin flake decommissioned from nix-it-up
+
+Per user direction, the legacy `hosts/rd-td-mbp/` nested flake was retired
+from `nix-it-up` ahead of a confirmed switch (U7 dry build is green; the
+files remain recoverable from `nix-it-up` git history if the switch fails):
+
+- nix-it-up `4d04c2e`: delete `hosts/rd-td-mbp/` (flake, lock, configuration,
+  user module). Root flake still shows only `home-nas`; `scripts/check-docs`
+  passes; `hosts/home-nas` untouched.
+- nix-it-up `22f5d27`: README repo map and HOSTS.md inventory updated to
+  record the removal alongside the other decommissioned hosts.
+
+**Remaining:** U7 switch on the target Mac + post-switch 1Password/SSH
+checks (the final adoption gate).
 
 ---
 
