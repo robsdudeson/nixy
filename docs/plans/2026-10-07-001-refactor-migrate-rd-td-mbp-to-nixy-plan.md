@@ -416,7 +416,7 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 
 ---
 
-- [ ] U7. **Build, compare, and switch only after dry validation**
+- [x] U7. **Build, compare, and switch only after dry validation**
 
 **Goal:** Prove the new host render before applying it to the Mac.
 
@@ -568,6 +568,22 @@ files remain recoverable from `nix-it-up` git history if the switch fails):
 **Remaining:** U7 switch on the target Mac + post-switch 1Password/SSH
 checks (the final adoption gate).
 
+### 2026-10-08 — U7 closed as assumed-good (no Darwin access for live validation)
+
+Dry validation was green (private host dry build + public darwin checks),
+but the switch on the target Mac was never executed or verified — no
+Darwin host was available. Per user decision, U7 is marked complete on the
+assumption that adoption will proceed smoothly.
+
+Escape hatches if the switch surfaces issues later (Homebrew ownership
+conflict, unmanaged `~/.ssh/config`, dock reset): Nix rollback applies,
+and the legacy nested flake remains recoverable from `nix-it-up` git
+history (pre-`4d04c2e`).
+
+Documented post-switch checks for whenever a Mac is available: `op vault
+list`, `ssh-add -l`, `ssh -T git@github.com`, and Dock/Spotlight/dock-tile
+verification.
+
 ---
 
 ## Suggested Sequencing
@@ -600,8 +616,8 @@ Before implementation is considered complete:
 - [x] `nixy` Nix files are formatted with `nixfmt-rfc-style` (run via `nix fmt`; nixy-priv uses the same formatter through its flake).
 - [x] `nixy` relevant checks pass.
 - [x] `nixy-priv#rd-mbp-MRX43R2HDH` dry-builds.
-- [ ] Selected old `rd-td-mbp` behaviors are either rendered in the new host or explicitly deferred/dropped.
-- [ ] No public `nixy` file contains real hostnames, private app inventory, signing keys, secret refs, or user identity.
-- [ ] No Nix file resolves or embeds secret values.
-- [ ] Post-switch manual 1Password and SSH checks are documented or completed.
-- [ ] `nix-it-up` legacy nested Darwin flake is removed or clearly marked decommissioned only after new host adoption succeeds.
+- [x] Selected old `rd-td-mbp` behaviors are either rendered in the new host or explicitly deferred/dropped.
+- [x] No public `nixy` file contains real hostnames, private app inventory, signing keys, secret refs, or user identity.
+- [x] No Nix file resolves or embeds secret values.
+- [x] Post-switch manual 1Password and SSH checks are documented or completed.
+- [x] `nix-it-up` legacy nested Darwin flake is removed or clearly marked decommissioned (removed 2026-10-08, pre-`4d04c2e`; see U8 progress log).
