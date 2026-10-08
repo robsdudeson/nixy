@@ -534,6 +534,25 @@ Local repo patterns and docs are sufficient for this plan. External research is 
 --flake .#rd-mbp-MRX43R2HDH`), post-switch 1Password/SSH manual checks, then
 U8 decommission of the legacy nested flake in `nix-it-up`.
 
+### 2026-10-08 — Crash recovery: fidelity fixes committed and pushed
+
+The machine crashed after the render-comparison fixes were validated but
+before they were committed. Resumed from session history:
+
+- nixy `589bb77`: VS Code `/Applications` bundle symlink activation fix
+  (public darwin module).
+- nixy-priv `39df728` + `b45c0b9`: lock bump to the new nixy rev, and the
+  user-config fixes (`xdg.enable`, removal of the `workstationDefaults`
+  override that dropped the legacy git workflow).
+- Re-ran dry validation after the lock bump: private host dry build and the
+darwin example checks all green. Both repos pushed.
+- Signing note: commit signing works through the configured
+  `gpg.ssh.program` helper; the lost Linux `op` CLI session was a red
+  herring for git signing.
+
+**Remaining:** U7 switch on the target Mac + post-switch 1Password/SSH
+checks, then U8 decommission of the legacy nested flake in `nix-it-up`.
+
 ---
 
 ## Suggested Sequencing
