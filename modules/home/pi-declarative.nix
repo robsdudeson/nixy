@@ -7,6 +7,25 @@
 
 let
   cfg = config.programs.pi-declarative;
+  hmDag = lib.hm.dag or { entryAfter = _deps: script: script; };
+
+  managedPiWrapper = pkgs.writeShellScriptBin "pi" ''
+    set -euo pipefail
+
+    for candidate in \
+      "$HOME/.local/bin/pi" \
+      "$HOME/.pi/agent/bin/pi" \
+      "$HOME/.bun/bin/pi" \
+      "$HOME/.npm-global/bin/pi"
+    do
+      if [ -x "$candidate" ]; then
+        exec "$candidate" "$@"
+      fi
+    done
+
+    echo "pi: managed pi is not installed yet; rebuild or run: curl -fsSL https://pi.dev/install.sh | sh" >&2
+    exit 127
+  '';
 
   piAuthMerge = pkgs.writeShellScript "pi-auth-merge" ''
     set -euo pipefail
@@ -68,11 +87,25 @@ in
   options.programs.pi-declarative = {
     enable = lib.mkEnableOption "pi-coding-agent with declarative base configuration";
 
+    installMethod = lib.mkOption {
+      type = lib.types.enum [
+        "managed-installer"
+        "nix"
+      ];
+      default = "managed-installer";
+      description = ''
+        How the pi executable is provided. Use "managed-installer" for the
+        official pi.dev installer so `pi update` can update Pi itself. Use
+        "nix" only when the binary should be provided by Nix; in that mode
+        `pi update` can update extensions and models but not Pi itself.
+      '';
+    };
+
     package = lib.mkOption {
       type = lib.types.nullOr lib.types.package;
-      default = pkgs.pi-coding-agent or null;
-      defaultText = lib.literalExpression "pkgs.pi-coding-agent or null";
-      description = "pi-coding-agent package to install and use for package reconciliation.";
+      default = null;
+      defaultText = lib.literalExpression "null";
+      description = "pi-coding-agent package to install when installMethod is \"nix\" and to put on PATH for package reconciliation when available.";
     };
 
     settings = lib.mkOption {
@@ -100,17 +133,25 @@ in
     };
 
     reconcilePackagesOnLogin = lib.mkEnableOption "a user service that runs pi update --extensions after activation/login";
+
+    manageOnActivation = lib.mkEnableOption "install or update managed pi during Home Manager activation";
   };
 
   config = lib.mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = cfg.package != null;
-        message = "programs.pi-declarative requires pkgs.pi-coding-agent or an explicit programs.pi-declarative.package.";
-      }
-    ];
+    assertions = lib.optional (cfg.installMethod == "nix") {
+      assertion = cfg.package != null;
+      message = "programs.pi-declarative.installMethod = \"nix\" requires pkgs.pi-coding-agent or an explicit programs.pi-declarative.package.";
+    };
 
-    home.packages = [ cfg.package ];
+    home.packages =
+      lib.optional (cfg.installMethod == "nix" && cfg.package != null) cfg.package
+      ++ lib.optional (cfg.installMethod == "managed-installer") managedPiWrapper;
+
+    home.sessionPath = lib.mkIf (cfg.installMethod == "managed-installer") [
+      "${config.home.homeDirectory}/.local/bin"
+      "${config.home.homeDirectory}/.bun/bin"
+      "${config.home.homeDirectory}/.npm-global/bin"
+    ];
 
     home.file = {
       ".pi/agent/settings.json" = {
@@ -135,6 +176,38 @@ in
         source = cfg.agentInstructionsFile;
         force = true;
       };
+    };
+
+    home.activation = lib.mkIf (cfg.installMethod == "managed-installer" && cfg.manageOnActivation) {
+      installOrUpdatePi = hmDag.entryAfter [ "writeBoundary" ] ''
+        if [ -n "''${DRY_RUN_CMD:-}" ]; then
+          $VERBOSE_ECHO "pi: dry run; skipping install/update"
+        else
+          export PATH="${
+            lib.makeBinPath [
+              pkgs.curl
+              pkgs.git
+              pkgs.nodejs
+              pkgs.openssh
+            ]
+          }:$HOME/.local/bin:$HOME/.bun/bin:$HOME/.npm-global/bin:$PATH"
+
+          if command -v pi >/dev/null 2>&1; then
+            $VERBOSE_ECHO "pi: updating managed install and extensions"
+            pi update
+            pi update --extensions
+          else
+            $VERBOSE_ECHO "pi: installing managed pi"
+            curl -fsSL https://pi.dev/install.sh | sh
+            if command -v pi >/dev/null 2>&1; then
+              pi update --extensions
+            else
+              echo "pi: installer completed but pi is not on PATH" >&2
+              exit 1
+            fi
+          fi
+        fi
+      '';
     };
 
     systemd.user.services = lib.mkMerge [
@@ -164,15 +237,27 @@ in
           Service = {
             Type = "oneshot";
             WorkingDirectory = "%h";
-            Environment = "PATH=${
-              lib.makeBinPath [
-                cfg.package
-                pkgs.nodejs
-                pkgs.git
-                pkgs.openssh
-              ]
-            }";
-            ExecStart = "${cfg.package}/bin/pi update --extensions";
+            ExecStart = "${pkgs.writeShellScript "pi-package-reconcile" ''
+              set -euo pipefail
+
+              export PATH="${
+                lib.makeBinPath (
+                  [
+                    pkgs.nodejs
+                    pkgs.git
+                    pkgs.openssh
+                  ]
+                  ++ lib.optional (cfg.installMethod == "nix" && cfg.package != null) cfg.package
+                )
+              }:$HOME/.local/bin:$HOME/.bun/bin:$HOME/.npm-global/bin:$PATH"
+
+              if ! command -v pi >/dev/null 2>&1; then
+                echo "pi-package-reconcile: pi is not installed; run the pi.dev installer first" >&2
+                exit 0
+              fi
+
+              exec pi update --extensions
+            ''}";
           };
 
           Install.WantedBy = [ "default.target" ];

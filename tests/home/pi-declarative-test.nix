@@ -9,7 +9,8 @@ let
   evalModule =
     {
       enable ? false,
-      package ? pkgs.hello,
+      installMethod ? "managed-installer",
+      package ? null,
       reconcilePackagesOnLogin ? false,
       agentInstructionsFile ? null,
       settings ? { },
@@ -29,6 +30,10 @@ let
               home = lib.mkOption {
                 type = lib.types.submodule {
                   options = {
+                    homeDirectory = lib.mkOption {
+                      type = lib.types.str;
+                      default = "/home/example";
+                    };
                     packages = lib.mkOption {
                       type = lib.types.listOf lib.types.package;
                       default = [ ];
@@ -36,6 +41,14 @@ let
                     file = lib.mkOption {
                       type = lib.types.attrs;
                       default = { };
+                    };
+                    activation = lib.mkOption {
+                      type = lib.types.attrs;
+                      default = { };
+                    };
+                    sessionPath = lib.mkOption {
+                      type = lib.types.listOf lib.types.str;
+                      default = [ ];
                     };
                   };
                 };
@@ -52,6 +65,7 @@ let
             programs.pi-declarative = {
               inherit
                 enable
+                installMethod
                 package
                 settings
                 reconcilePackagesOnLogin
@@ -112,6 +126,7 @@ let
           packageCount = builtins.length config.home.packages;
           settings = settings;
           settingsForce = config.home.file.".pi/agent/settings.json".force;
+          sessionPath = config.home.sessionPath;
           hasModels = builtins.hasAttr ".pi/agent/models.json" config.home.file;
           hasAuthBase = builtins.hasAttr ".pi/agent/auth.base.json" config.home.file;
           hasAgents = builtins.hasAttr ".pi/agent/AGENTS.md" config.home.file;
@@ -124,6 +139,11 @@ let
           packages = [ "npm:example-package" ];
         };
         settingsForce = true;
+        sessionPath = [
+          "/home/example/.local/bin"
+          "/home/example/.bun/bin"
+          "/home/example/.npm-global/bin"
+        ];
         hasModels = false;
         hasAuthBase = false;
         hasAgents = false;
@@ -246,7 +266,7 @@ let
       };
     };
 
-    test_reconcile_service_when_enabled = {
+    test_reconcile_service_when_enabled_uses_path_pi = {
       expr =
         let
           config = evalModule {
@@ -254,34 +274,47 @@ let
             reconcilePackagesOnLogin = true;
           };
           service = config.systemd.user.services.pi-package-reconcile;
+          script = builtins.readFile service.Service.ExecStart;
         in
         {
           type = service.Service.Type;
-          execStart = service.Service.ExecStart;
+          execStartIsStoreScript = lib.hasPrefix "#!" script;
+          usesPiFromPath = lib.hasInfix "exec pi update --extensions" script;
+          skipsWhenPiMissing = lib.hasInfix "pi is not installed" script;
+          includesUserInstallerBins = lib.hasInfix ".local/bin:$HOME/.bun/bin:$HOME/.npm-global/bin" script;
           wantedBy = service.Install.WantedBy;
           after = service.Unit.After;
           condition = service.Unit.ConditionPathExists;
         };
       expected = {
         type = "oneshot";
-        execStart = "${pkgs.hello}/bin/pi update --extensions";
+        execStartIsStoreScript = true;
+        usesPiFromPath = true;
+        skipsWhenPiMissing = true;
+        includesUserInstallerBins = true;
         wantedBy = [ "default.target" ];
         after = [ "network-online.target" ];
         condition = "%h/.pi/agent/settings.json";
       };
     };
 
-    test_enabled_has_package_assertion = {
+    test_nix_install_method_installs_package_and_asserts = {
       expr =
         let
-          config = evalModule { enable = true; };
+          config = evalModule {
+            enable = true;
+            installMethod = "nix";
+            package = pkgs.hello;
+          };
           assertion = builtins.head config.assertions;
         in
         {
+          packageCount = builtins.length config.home.packages;
           passes = assertion.assertion;
           hasMessage = builtins.isString assertion.message;
         };
       expected = {
+        packageCount = 1;
         passes = true;
         hasMessage = true;
       };

@@ -1,20 +1,20 @@
 # pi coding agent
 
-This repo installs the Bun JavaScript runtime declaratively and sets pi's
+This repo installs Pi's runtime prerequisites declaratively and sets pi's
 non-secret environment through Home Manager. The `pi` binary itself is
-installed imperatively — it is not in nixpkgs and fully declarative packaging
-was deferred. See [First-run checklist](#first-run-checklist).
+installed with Pi's official managed installer so `pi update` can update Pi to
+the latest release. See [First-run checklist](#first-run-checklist).
 
 ## What's declarative vs. manual
 
 Declarative (this repo, once a host opts in via `profiles/pi.nix`):
 
-- Installing the Bun runtime (`pkgs.bun`).
-- Installing Node.js 22 (`pkgs.nodejs_22`) so `npx` can run LazyPi.
-- Setting `BUN_INSTALL` to `~/.bun` so `bun install -g` lands in a
+- Installing the Bun runtime (`pkgs.bun`) for legacy Pi ecosystem tooling.
+- Installing Node.js 22 (`pkgs.nodejs_22`) so pi and `npx`/LazyPi have a managed runtime.
+- Setting `BUN_INSTALL` to `~/.bun` so legacy Bun global installs land in a
   predictable, user-writable location.
-- Adding `~/.bun/bin` to `PATH` so the installed `pi` binary resolves in
-  every login shell.
+- Adding `~/.local/bin` and `~/.bun/bin` to `PATH` so the managed installer
+  and legacy Bun global tools resolve in every login shell.
 - Setting `PI_CODING_AGENT_DIR` to `~/.config/pi/agent` so pi and LazyPi use
   the same writable config tree.
 - Setting `PI_PACKAGE_DIR` to `~/.local/share/pi/packages` for stable,
@@ -23,9 +23,14 @@ Declarative (this repo, once a host opts in via `profiles/pi.nix`):
 - Seeding a minimal `~/.config/pi/agent/settings.json` only if one does not
   already exist (idempotent; never overwrites an existing file).
 
-Manual (you, once per machine, after a switch):
+Managed during activation/rebuild:
 
-- Installing `pi` with `bun install -g @earendil-works/pi-coding-agent`.
+- Installing `pi` with the official managed installer when it is missing: `curl -fsSL https://pi.dev/install.sh | sh`.
+- Running `pi update` and `pi update --extensions` when `pi` is already installed.
+
+Manual (you, once per machine if activation cannot reach the network):
+
+- Running the official installer yourself: `curl -fsSL https://pi.dev/install.sh | sh`.
 - Optionally running LazyPi to install community Pi packages.
 - Configuring a provider API key (see [Provider API keys](#provider-api-keys)).
 - Any personal settings (theme, editor, model) in `settings.json`.
@@ -36,9 +41,14 @@ provider authentication. Treat those as first-run steps, not build output.
 ## NixOS declarative variant
 
 NixOS hosts can opt into `modules/home/pi-declarative.nix` instead of the
-Darwin Bun-imperative path described above. That variant installs the packaged
-`pi-coding-agent` from the public overlay in `modules/nixos/overlays.nix`, so
-hosts do not run `bun install -g` for the `pi` binary.
+Darwin profile described above. By default, that module expects the official
+managed installer to provide the `pi` binary, so bare `pi update` can update Pi
+itself. It still declaratively manages base settings, models, auth metadata,
+and package reconciliation.
+
+The module keeps an escape hatch, `programs.pi-declarative.installMethod = "nix"`,
+for hosts that intentionally want a Nix-provided `pi` package. In that mode,
+`pi update` cannot update Pi itself; update the Nix package instead.
 
 The declarative NixOS module can manage base `~/.pi/agent/settings.json`,
 `models.json`, `auth.base.json`, and `AGENTS.md` files. Host-specific package
@@ -52,13 +62,15 @@ login, writes the resolved key into `auth.json`, and fails loudly if resolution
 returns no value. This keeps secret resolution at runtime instead of during Nix
 evaluation.
 
-Hosts may also enable the optional `pi-package-reconcile` user service to run
-`pi update --extensions` after activation/login. It is off by default because it
-is networked and mutates Pi's writable package state.
+Hosts may also enable activation-time management with
+`programs.pi-declarative.manageOnActivation = true`. That installs Pi when it
+is missing, or runs `pi update` and `pi update --extensions` when it is already
+installed. The optional `pi-package-reconcile` user service can also run
+`pi update --extensions` after login.
 
-The Darwin path in `modules/home/pi.nix` is unchanged: Bun, Node.js, and the
-non-secret environment are declarative, while installing the `pi` binary and
-LazyPi packages remains a manual first-run step.
+The Darwin path in `modules/home/pi.nix` is the same split: runtime tools and
+the non-secret environment are declarative, while installing the `pi` binary
+and LazyPi packages remains a manual first-run step.
 
 ## Enabling this on a host
 
@@ -77,13 +89,7 @@ imports = [
 
 After a successful `darwin-rebuild switch` on a host with this profile enabled:
 
-1. Install pi:
-
-   ```sh
-   bun install -g @earendil-works/pi-coding-agent
-   ```
-
-2. Verify pi and the LazyPi runtime tools are on `PATH`:
+1. Verify pi and the LazyPi runtime tools are on `PATH`:
 
    ```sh
    which -a pi
@@ -98,12 +104,12 @@ After a successful `darwin-rebuild switch` on a host with this profile enabled:
 
    Node must be `22.19` or newer for LazyPi.
 
-3. Optional: install community Pi packages with LazyPi — see
+2. Optional: install community Pi packages with LazyPi — see
    [LazyPi package bootstrap](#lazypi-package-bootstrap).
 
-4. Configure a provider API key — see [Provider API keys](#provider-api-keys).
+3. Configure a provider API key — see [Provider API keys](#provider-api-keys).
 
-5. Start pi:
+4. Start pi:
 
    ```sh
    pi
@@ -116,9 +122,9 @@ installs a curated set of community packages such as subagents, MCP support,
 web access, memory, plan mode, interactive shell, Compound Engineering, usage
 tracking, and themes.
 
-Run LazyPi only after a rebuild and after `pi` is already installed with Bun.
-Do not run it from Home Manager or nix-darwin activation: it is interactive,
-networked, and mutates Pi's writable package/config state.
+Run LazyPi only after a rebuild and after `pi` is already installed with the
+managed installer. Do not run it from Home Manager or nix-darwin activation:
+it is interactive, networked, and mutates Pi's writable package/config state.
 
 Recommended install flow:
 
@@ -160,14 +166,13 @@ pi with `PI_OFFLINE=1`.
 Upgrade pi itself with:
 
 ```sh
-pi update --self
+pi update
 ```
 
-To pin pi to a specific version:
-
-```sh
-bun install -g @earendil-works/pi-coding-agent@<version>
-```
+The official installer owns the mutable Pi binary and pins its dependencies.
+If Pi is installed by Nix, `pi update` cannot update Pi itself; use the Nix
+package manager for the binary and keep using `pi update --extensions` for
+packages.
 
 Check the installed version with `pi --version` or look for
 `lastChangelogVersion` in `~/.config/pi/agent/settings.json`.
@@ -248,7 +253,7 @@ change files in this directory while it runs.
 
 | Variable | Set by | Default | Purpose |
 |---|---|---|---|
-| `BUN_INSTALL` | `modules/home/pi.nix` | `~/.bun` | Bun global-package prefix; `~/.bun/bin` on `PATH` |
+| `BUN_INSTALL` | `modules/home/pi.nix` | `~/.bun` | Legacy Bun global-package prefix; `~/.bun/bin` on `PATH` |
 | `PI_CODING_AGENT_DIR` | `modules/home/pi.nix` | `~/.config/pi/agent` | Pi config root; keeps pi and LazyPi on the same writable tree |
 | `PI_PACKAGE_DIR` | `modules/home/pi.nix` | `~/.local/share/pi/packages` | Extension/plugin install root; avoids Nix-store path issues |
 | `PI_TELEMETRY` | `modules/home/pi.nix` | `0` (off) | Install/update telemetry; set `1` in a local shell profile to re-enable |
@@ -304,10 +309,11 @@ To remove LazyPi-installed packages, use LazyPi first:
 npx @robzolkos/lazypi@<reviewed-version> remove
 ```
 
-To remove pi without touching the rest of the Nix configuration:
+To remove pi without touching the rest of the Nix configuration, run the
+installer again and choose **Uninstall Pi**:
 
 ```sh
-bun remove -g @earendil-works/pi-coding-agent
+curl -fsSL https://pi.dev/install.sh | sh
 ```
 
 To remove config and sessions:
@@ -330,7 +336,7 @@ not touch `~/.config/pi` or any installed extensions.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `pi: command not found` after switch | pi not yet installed, or `~/.bun/bin` not on PATH in the current shell | Open a new login shell (PATH is set at session start), then run `bun install -g @earendil-works/pi-coding-agent` |
+| `pi: command not found` after switch | pi not yet installed, or the installer bin path is not on PATH in the current shell | Open a new login shell (PATH is set at session start), then run `curl -fsSL https://pi.dev/install.sh \| sh` |
 | `bun: command not found` | Home Manager switch not applied yet, or shell not restarted | Run `darwin-rebuild switch`, then open a new shell |
 | `npx @robzolkos/lazypi` fails with a Node version error | Node is missing, too old, or the shell predates the latest switch | Open a fresh shell and check `node --version`; it must be `22.19` or newer |
 | LazyPi status does not match Pi's packages | `PI_CODING_AGENT_DIR` or `PI_PACKAGE_DIR` is missing, or multiple `pi` installs exist | Check `echo $PI_CODING_AGENT_DIR`, `echo $PI_PACKAGE_DIR`, and `which -a pi`; resolve duplicates before updating packages |
