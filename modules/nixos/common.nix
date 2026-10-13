@@ -42,7 +42,10 @@ in
   config = mkMerge [
     (mkIf cfg.enable {
       nix.settings = {
-        experimental-features = "nix-command flakes";
+        experimental-features = [
+          "nix-command"
+          "flakes"
+        ];
         use-xdg-base-directories = true;
       };
 

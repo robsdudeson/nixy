@@ -6,15 +6,18 @@ This repo is the reusable base. Real machine names, real user names, work-only a
 
 ## Current status
 
-The public flake exposes build-safe example hosts for Apple Silicon Darwin and NixOS WSL2:
+The public flake exposes build-safe example hosts for Apple Silicon Darwin, NixOS WSL2, and Raspberry Pi 4:
 
 ```sh
 nix flake show
 nix build .#darwinConfigurations.example-aarch64-darwin.system --dry-run
 nix build .#nixosConfigurations.example-x86_64-linux.config.system.build.toplevel --dry-run
+nix build .#nixosConfigurations.example-aarch64-rpi.config.system.build.toplevel --dry-run
 ```
 
 Do not run `darwin-rebuild switch` or `nixos-rebuild switch` against public examples unless the machine has the matching fake-safe user. For a real machine, define the real host and existing user in `nixy-priv` as a `darwinConfigurations` or `nixosConfigurations` output, or use a local ignored override.
+
+Raspberry Pi hosts should be real private `nixosConfigurations` in `nixy-priv`. The public `example-aarch64-rpi` output proves the reusable Raspberry Pi 4 base without exposing real hostnames, users, SSH keys, or network inventory.
 
 ## Bootstrap script
 

@@ -104,6 +104,42 @@ sudo darwin-rebuild switch --flake .#<host>
 
 Review `flake.lock` before committing. Public lock files must not contain private Git URLs or private path inputs.
 
+## NixOS Raspberry Pi hosts
+
+Raspberry Pi hosts live in `nixy-priv` as `nixosConfigurations` on the dedicated
+`aarch64-linux` Raspberry Pi input line. The public `example-aarch64-rpi` host
+proves the reusable Raspberry Pi 4 composition; real hostnames, users, SSH keys,
+DNS policy, and network inventory stay private.
+
+For a first boot, start from a known-good generic NixOS aarch64 Raspberry Pi
+image, boot with Ethernet, then switch to the private host from the Pi itself:
+
+```sh
+nix flake show <nixy-priv-path>
+sudo nixos-rebuild switch --flake <nixy-priv-path>#<host>
+```
+
+Build checks for a real Pi host use the normal NixOS toplevel attribute:
+
+```sh
+nix build <nixy-priv-path>#nixosConfigurations.<host>.config.system.build.toplevel --dry-run
+```
+
+For a Pi-hole host, keep the LAN IP stable with a router DHCP reservation or a
+private static-networking module before pointing clients or the router at it.
+Validate locally first:
+
+```sh
+systemctl status pihole-ftl.service
+nslookup nixos.org localhost
+```
+
+Then test from another client before making it the network-wide DNS server:
+
+```sh
+dig @<pi-lan-ip> example.com
+```
+
 ## NixOS WSL hosts
 
 NixOS WSL hosts live in `nixy-priv` as `nixosConfigurations`. Rebuild from the

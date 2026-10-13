@@ -117,7 +117,10 @@ let
           useGlobalPkgs = config.home-manager.useGlobalPkgs;
         };
       expected = {
-        experimentalFeatures = "nix-command flakes";
+        experimentalFeatures = [
+          "nix-command"
+          "flakes"
+        ];
         useXdgBaseDirs = true;
         allowUnfree = true;
         useUserPackages = true;

@@ -50,6 +50,17 @@
     # 26.05 rev yet — drop this input and the overlay in modules/nixos/
     # overlays.nix once nixos-26.05 carries bun >= 1.4.
     nixpkgs-bun.url = "github:NixOS/nixpkgs/pull/556047/head";
+
+    # Dedicated Raspberry Pi line. Keep this independent from the WSL-scoped
+    # 26.05 inputs so Pi firmware/kernel support can move at its own pace.
+    nixpkgs-rpi.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    home-manager-rpi = {
+      url = "github:nix-community/home-manager/master";
+      inputs.nixpkgs.follows = "nixpkgs-rpi";
+    };
+
+    nixos-hardware.url = "github:NixOS/nixos-hardware";
   };
 
   outputs =
@@ -64,6 +75,7 @@
       pkgs = nixpkgs.legacyPackages.${system};
       nixosSystem = "x86_64-linux";
       nixosPkgs = inputs.nixpkgs-nixos.legacyPackages.${nixosSystem};
+      rpiSystem = "aarch64-linux";
       runModuleTest =
         name: file:
         let
@@ -108,6 +120,23 @@
 
         modules = [
           ./hosts/example-x86_64-linux
+        ];
+      };
+
+      # Fake-safe Raspberry Pi 4 host on a dedicated aarch64-linux input line.
+      # Real Pi hostnames, users, network policy, and services live in nixy-priv.
+      nixosConfigurations.example-aarch64-rpi = inputs.nixpkgs-rpi.lib.nixosSystem {
+        system = rpiSystem;
+
+        specialArgs = {
+          inherit inputs;
+          hostName = "example-aarch64-rpi";
+          primaryUser = "example";
+        };
+
+        modules = [
+          inputs.nixos-hardware.nixosModules.raspberry-pi-4
+          ./hosts/example-aarch64-rpi
         ];
       };
 
@@ -233,6 +262,11 @@
         vscode-test = runModuleTest "vscode-module-test" ./tests/home/vscode-test.nix;
         common-test = runModuleTest "common-module-test" ./tests/nixos/common-test.nix;
         wsl-test = runModuleTest "wsl-module-test" ./tests/nixos/wsl-test.nix;
+        raspberry-pi-test = runModuleTest "raspberry-pi-module-test" ./tests/nixos/raspberry-pi-test.nix;
+      };
+
+      checks.${rpiSystem} = {
+        example-aarch64-rpi = self.nixosConfigurations.example-aarch64-rpi.config.system.build.toplevel;
       };
     };
 }
