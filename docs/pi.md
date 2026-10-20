@@ -50,10 +50,10 @@ The module keeps an escape hatch, `programs.pi-declarative.installMethod = "nix"
 for hosts that intentionally want a Nix-provided `pi` package. In that mode,
 `pi update` cannot update Pi itself; update the Nix package instead.
 
-The declarative NixOS module can manage base `~/.pi/agent/settings.json`,
-`models.json`, `auth.base.json`, and `AGENTS.md` files. Host-specific package
-choices, provider entries, and auth metadata still belong in `nixy-priv`, not
-in public defaults.
+The declarative NixOS module reconciles base `~/.pi/agent/settings.json`
+and `models.json` values into writable files during activation. It also manages
+`auth.base.json` and `AGENTS.md` files. Host-specific package choices, provider
+entries, and auth metadata still belong in `nixy-priv`, not in public defaults.
 
 When `authBase` is configured, the `pi-auth-merge` user service merges
 `auth.base.json` into writable `auth.json` at login. API-key entries whose
@@ -246,8 +246,10 @@ the other fields only when the local server rejects or omits a streaming field:
 | Streamed chunks never include a finish reason | `"supportsFinishReason": false` | Add only if pi reports missing `finish_reason` data |
 
 `models.json` sits beside `settings.json`, `trust.json`, sessions, and package
-caches. Do not manage it with Nix or replace it with a store symlink; pi can
-change files in this directory while it runs.
+caches. Do not replace it with a Nix-store symlink; pi can change files in this
+directory while it runs. The NixOS declarative module handles this by merging
+its baseline model config into a writable `~/.pi/agent/models.json` during
+activation.
 
 ## Environment variables
 
@@ -261,8 +263,8 @@ change files in this directory while it runs.
 
 ## settings.json
 
-On first switch, the activation script seeds `~/.config/pi/agent/settings.json`
-with a minimal baseline:
+On Darwin hosts, the activation script seeds `~/.config/pi/agent/settings.json`
+with a minimal writable baseline when the file is missing:
 
 ```json
 {
@@ -270,11 +272,17 @@ with a minimal baseline:
 }
 ```
 
-This file is writable — pi and you can modify it freely. A subsequent
-`darwin-rebuild switch` never overwrites it. Edit it directly or through pi's
-own settings commands. Do not replace it with a `home.file` symlink; pi
-mutates this file and the sibling files in the same directory (`trust.json`,
-`ide-selection.json`, sessions/, package caches).
+On NixOS hosts using `programs.pi-declarative`, activation reconciles the
+configured baseline into `~/.pi/agent/settings.json`. The file remains a real,
+writable file: local keys written by pi or LazyPi are preserved, while keys
+explicitly configured in Nix take precedence. If a previous generation created
+a read-only Nix-store symlink, the next activation converts it into a real file
+before merging.
+
+Edit settings directly or through pi's own settings commands. Do not replace
+`settings.json` with a `home.file` symlink; pi mutates this file and the
+sibling files in the same directory (`trust.json`, `ide-selection.json`,
+sessions/, package caches).
 
 ## Extensions and skills
 
@@ -343,4 +351,4 @@ not touch `~/.config/pi` or any installed extensions.
 | pi starts but has no provider | Provider variable not set | Use `op run --env-file .env.op -- pi` or set the provider variable in your shell before starting pi |
 | `op run` fails immediately | 1Password locked, item missing, or wrong vault | Unlock/sign in, verify item/vault name, rerun |
 | Extensions install to wrong path | `PI_PACKAGE_DIR` not exported in the current shell | Restart the shell or `echo $PI_PACKAGE_DIR` to confirm |
-| Settings reset after rebuild | `settings.json` was a Nix-store symlink (read-only) | Delete the symlink, rebuild, and the activation script seeds a writable file |
+| Settings reset after rebuild | `settings.json` was a Nix-store symlink from an older generation | Rebuild with the current module; activation converts the symlink to a writable file and merges the baseline settings |

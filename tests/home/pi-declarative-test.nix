@@ -86,8 +86,6 @@ let
     in
     evaluated.config;
 
-  decodedSettings = config: builtins.fromJSON config.home.file.".pi/agent/settings.json".text;
-  decodedModels = config: builtins.fromJSON config.home.file.".pi/agent/models.json".text;
   decodedAuthBase = config: builtins.fromJSON config.home.file.".pi/agent/auth.base.json".text;
   authMergeScript =
     config: builtins.readFile config.systemd.user.services.pi-auth-merge.Service.ExecStart;
@@ -101,16 +99,18 @@ let
         {
           packages = config.home.packages;
           files = config.home.file;
+          activation = config.home.activation;
           services = config.systemd.user.services;
         };
       expected = {
         packages = [ ];
         files = { };
+        activation = { };
         services = { };
       };
     };
 
-    test_enabled_with_null_auth_base_writes_only_settings = {
+    test_enabled_reconciles_settings_without_home_file_symlink = {
       expr =
         let
           config = evalModule {
@@ -120,38 +120,41 @@ let
               packages = [ "npm:example-package" ];
             };
           };
-          settings = decodedSettings config;
+          hook = config.home.activation.reconcilePiSettings;
         in
         {
           packageCount = builtins.length config.home.packages;
-          settings = settings;
-          settingsForce = config.home.file.".pi/agent/settings.json".force;
-          sessionPath = config.home.sessionPath;
-          hasModels = builtins.hasAttr ".pi/agent/models.json" config.home.file;
+          hasSettingsFile = builtins.hasAttr ".pi/agent/settings.json" config.home.file;
+          hasModelsFile = builtins.hasAttr ".pi/agent/models.json" config.home.file;
           hasAuthBase = builtins.hasAttr ".pi/agent/auth.base.json" config.home.file;
           hasAgents = builtins.hasAttr ".pi/agent/AGENTS.md" config.home.file;
+          hasSettingsHook = builtins.hasAttr "reconcilePiSettings" config.home.activation;
+          hasModelsHook = builtins.hasAttr "reconcilePiModels" config.home.activation;
+          hookSkipsDryRun = lib.hasInfix "dry run; skipping settings.json reconciliation" hook;
+          hookRunsReconcileScript = lib.hasInfix "pi-json-reconcile-settings.json" hook;
+          sessionPath = config.home.sessionPath;
           services = config.systemd.user.services;
         };
       expected = {
         packageCount = 1;
-        settings = {
-          defaultProvider = "example-provider";
-          packages = [ "npm:example-package" ];
-        };
-        settingsForce = true;
+        hasSettingsFile = false;
+        hasModelsFile = false;
+        hasAuthBase = false;
+        hasAgents = false;
+        hasSettingsHook = true;
+        hasModelsHook = false;
+        hookSkipsDryRun = true;
+        hookRunsReconcileScript = true;
         sessionPath = [
           "/home/example/.local/bin"
           "/home/example/.bun/bin"
           "/home/example/.npm-global/bin"
         ];
-        hasModels = false;
-        hasAuthBase = false;
-        hasAgents = false;
         services = { };
       };
     };
 
-    test_optional_models_file = {
+    test_optional_models_reconciled_without_home_file_symlink = {
       expr =
         let
           config = evalModule {
@@ -163,15 +166,19 @@ let
               models = [ { id = "example-model"; } ];
             };
           };
-          models = decodedModels config;
+          hook = config.home.activation.reconcilePiModels;
         in
         {
-          localModels = models.providers.local.models;
-          force = config.home.file.".pi/agent/models.json".force;
+          hasModelsFile = builtins.hasAttr ".pi/agent/models.json" config.home.file;
+          hasModelsHook = builtins.hasAttr "reconcilePiModels" config.home.activation;
+          hookSkipsDryRun = lib.hasInfix "dry run; skipping models.json reconciliation" hook;
+          hookRunsReconcileScript = lib.hasInfix "pi-json-reconcile-models.json" hook;
         };
       expected = {
-        localModels = [ { id = "example-model"; } ];
-        force = true;
+        hasModelsFile = false;
+        hasModelsHook = true;
+        hookSkipsDryRun = true;
+        hookRunsReconcileScript = true;
       };
     };
 
@@ -251,7 +258,7 @@ let
           executesWithoutCommandLogging = lib.hasInfix ''bash -c "$command" 2>/dev/null'' script;
           trimsResolvedOutput = lib.hasInfix ''sub("^\\s+"; "") | sub("\\s+$"; "")'' script;
           rejectsEmptyOutput = lib.hasInfix "was empty" script;
-          replacesKeyWithResolvedValue = lib.hasInfix ".[$name].key = $key" script;
+          replacesKeyWithResolvedValue = lib.hasInfix ".[\$name].key = \$key" script;
           movesMergedAuthAtomically = lib.hasInfix ''mv "$tmp" "$target"'' script;
         };
       expected = {

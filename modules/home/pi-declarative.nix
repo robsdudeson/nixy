@@ -82,6 +82,39 @@ let
     trap - EXIT
     chmod 600 "$target"
   '';
+
+  # Reconcile a Pi JSON file that pi/LazyPi may mutate into a real writable
+  # file. A prior home.file symlink is converted in place (contents preserved),
+  # a missing file starts from the declarative baseline, and an existing file
+  # is deep-merged with the baseline so explicitly managed keys win while keys
+  # pi added locally are kept.
+  piJsonReconcile =
+    { path, json }:
+    let
+      baseline = pkgs.writeText "pi-${builtins.baseNameOf path}-baseline.json" json;
+    in
+    pkgs.writeShellScript "pi-json-reconcile-${builtins.baseNameOf path}" ''
+      set -euo pipefail
+
+      target="$HOME/.pi/agent/${path}"
+      mkdir -p "$HOME/.pi/agent"
+
+      if [ -L "$target" ]; then
+        # Convert a prior read-only Nix-store symlink into a real file, keeping
+        # the contents it pointed at.
+        cp --remove-destination "$(readlink -f "$target")" "$target"
+      elif [ ! -f "$target" ]; then
+        printf '{}\n' > "$target"
+      fi
+
+      tmp=$(mktemp "$HOME/.pi/agent/${path}.XXXXXX")
+      ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$target" ${baseline} > "$tmp" || {
+        rm -f "$tmp"
+        exit 1
+      }
+      mv "$tmp" "$target"
+      chmod 600 "$target"
+    '';
 in
 {
   options.programs.pi-declarative = {
@@ -153,32 +186,49 @@ in
       "${config.home.homeDirectory}/.npm-global/bin"
     ];
 
-    home.file = {
-      ".pi/agent/settings.json" = {
-        text = lib.generators.toJSON { } cfg.settings;
-        force = true;
+    home.file =
+      lib.optionalAttrs (cfg.authBase != null) {
+        ".pi/agent/auth.base.json" = {
+          text = lib.generators.toJSON { } cfg.authBase;
+          force = true;
+        };
+      }
+      // lib.optionalAttrs (cfg.agentInstructionsFile != null) {
+        ".pi/agent/AGENTS.md" = {
+          source = cfg.agentInstructionsFile;
+          force = true;
+        };
       };
+
+    # settings.json and models.json are writable files that pi/LazyPi mutate,
+    # so they cannot be Nix-store symlinks. Reconcile them at activation: keep
+    # any locally-added keys, apply the declarative baseline on top, and convert
+    # a prior home.file symlink into a real file.
+    home.activation = {
+      reconcilePiSettings = hmDag.entryAfter [ "writeBoundary" ] ''
+        if [ -n "''${DRY_RUN_CMD:-}" ]; then
+          $VERBOSE_ECHO "pi: dry run; skipping settings.json reconciliation"
+        else
+          ${piJsonReconcile {
+            path = "settings.json";
+            json = lib.generators.toJSON { } cfg.settings;
+          }}
+        fi
+      '';
     }
     // lib.optionalAttrs (cfg.models != null) {
-      ".pi/agent/models.json" = {
-        text = lib.generators.toJSON { } cfg.models;
-        force = true;
-      };
+      reconcilePiModels = hmDag.entryAfter [ "writeBoundary" ] ''
+        if [ -n "''${DRY_RUN_CMD:-}" ]; then
+          $VERBOSE_ECHO "pi: dry run; skipping models.json reconciliation"
+        else
+          ${piJsonReconcile {
+            path = "models.json";
+            json = lib.generators.toJSON { } cfg.models;
+          }}
+        fi
+      '';
     }
-    // lib.optionalAttrs (cfg.authBase != null) {
-      ".pi/agent/auth.base.json" = {
-        text = lib.generators.toJSON { } cfg.authBase;
-        force = true;
-      };
-    }
-    // lib.optionalAttrs (cfg.agentInstructionsFile != null) {
-      ".pi/agent/AGENTS.md" = {
-        source = cfg.agentInstructionsFile;
-        force = true;
-      };
-    };
-
-    home.activation = lib.mkIf (cfg.installMethod == "managed-installer" && cfg.manageOnActivation) {
+    // lib.optionalAttrs (cfg.installMethod == "managed-installer" && cfg.manageOnActivation) {
       installOrUpdatePi = hmDag.entryAfter [ "writeBoundary" ] ''
         if [ -n "''${DRY_RUN_CMD:-}" ]; then
           $VERBOSE_ECHO "pi: dry run; skipping install/update"
