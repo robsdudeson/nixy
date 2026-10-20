@@ -182,6 +182,57 @@ WSL-specific caveat: changing `wsl.defaultUser` requires the boot, terminate,
 and root-start flow documented by the NixOS-WSL project. Do not treat it as a
 normal rebuild-only change.
 
+### Imaging USB optical media from WSL
+
+WSL does not automatically expose USB optical drives as Linux block devices.
+Install `ddrescue` and `kmod` in the private host's `environment.systemPackages`,
+then rebuild. `kmod` supplies `modprobe`, which usbipd uses to load WSL's USB/IP
+controller module.
+
+On Windows, install [usbipd-win](https://github.com/dorssel/usbipd-win). With
+the disc inserted, use an elevated PowerShell to identify and share the USB
+drive:
+
+```powershell
+usbipd list
+usbipd bind --busid <bus-id>
+```
+
+Close applications that are using the disc, then attach the device from a
+normal PowerShell session:
+
+```powershell
+usbipd attach --wsl --busid <bus-id>
+```
+
+If Windows still holds the device, first stop the application using it. Only
+if that cannot release the device, repeat the bind from an elevated PowerShell
+with `--force`; this forcibly disconnects the drive from Windows:
+
+```powershell
+usbipd bind --busid <bus-id> --force
+```
+
+Back in WSL, confirm the drive appears (normally as `/dev/sr0`), then make a
+resumable image. Store the image and map file on a filesystem with more free
+space than the disc, and retain the map file for retries:
+
+```sh
+ls -l /dev/sr*
+mkdir -p ~/images
+sudo ddrescue -n -d /dev/sr0 ~/images/disc.iso ~/images/disc.map
+sudo ddrescue -d -r3 /dev/sr0 ~/images/disc.iso ~/images/disc.map
+```
+
+When finished, return the drive to Windows:
+
+```powershell
+usbipd detach --busid <bus-id>
+```
+
+USB/IP attachments are not persistent; reconnect the drive after a WSL or
+Windows restart. While attached, the optical drive is unavailable to Windows.
+
 ## Rollback
 
 Nix and nix-darwin generations can roll back. Homebrew casks, MAS apps, and macOS defaults are not fully rollback-safe and may need manual cleanup.
