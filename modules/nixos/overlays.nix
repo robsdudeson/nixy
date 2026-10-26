@@ -9,7 +9,7 @@
 inputs:
 [
   (final: prev: {
-    bun = inputs.nixpkgs-bun.legacyPackages.${final.system}.bun;
-    pi-coding-agent = inputs.pi.packages.${final.system}.pi;
+    bun = inputs.nixpkgs-bun.legacyPackages.${final.stdenv.hostPlatform.system}.bun;
+    pi-coding-agent = inputs.pi.packages.${final.stdenv.hostPlatform.system}.pi;
   })
 ]
