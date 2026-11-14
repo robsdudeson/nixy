@@ -57,7 +57,7 @@ Manual steps (without the script):
 2. Build the real private host from `nixy-priv` before switching.
 3. Switch only after the build succeeds and the host config names an existing user.
 
-See [`docs/operations.md`](docs/operations.md) for rebuild, rollback, update, and existing-Mac adoption notes.
+See [`docs/operations.md`](docs/operations.md) for rebuild, rollback, update, and existing-Mac adoption notes. The Orange Pi printer host has a separate vendor-Ubuntu recovery model documented in [`docs/orangepi-zero3w-recovery.md`](docs/orangepi-zero3w-recovery.md).
 
 ## Public/private boundary
 
