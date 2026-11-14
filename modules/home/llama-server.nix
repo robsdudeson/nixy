@@ -91,6 +91,56 @@ in
       example = "all";
     };
 
+    parallel = lib.mkOption {
+      type = lib.types.nullOr lib.types.int;
+      default = null;
+      description = ''
+        Number of llama-server slots to expose with --parallel. null keeps the
+        llama.cpp default. For a single local coding agent, 1 usually reduces
+        memory pressure and avoids serving unused slots.
+      '';
+      example = 1;
+    };
+
+    reasoning = lib.mkOption {
+      type = lib.types.nullOr (
+        lib.types.enum [
+          "on"
+          "off"
+          "auto"
+        ]
+      );
+      default = null;
+      description = ''
+        Optional llama.cpp chat reasoning mode. Set to "off" for reasoning
+        models when clients expect final answers in message.content instead of
+        extracted reasoning_content.
+      '';
+      example = "off";
+    };
+
+    speculative = {
+      type = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = ''
+          Speculative decoding type passed as --spec-type, such as
+          "draft-dflash". null disables speculative decoding flags.
+        '';
+        example = "draft-dflash";
+      };
+
+      draftModelPath = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = ''
+          Draft model GGUF path passed as --model-draft. This must match the
+          main model and speculative type.
+        '';
+        example = "/Users/username/.cache/huggingface/hub/.../dflash-model.gguf";
+      };
+    };
+
     logDirectory = lib.mkOption {
       type = lib.types.str;
       default = "${config.home.homeDirectory}/Library/Logs/llama-server";
@@ -136,6 +186,22 @@ in
         ++ (lib.optionals (cfg.gpuLayers != null) [
           "--n-gpu-layers"
           cfg.gpuLayers
+        ])
+        ++ (lib.optionals (cfg.parallel != null) [
+          "--parallel"
+          (toString cfg.parallel)
+        ])
+        ++ (lib.optionals (cfg.reasoning != null) [
+          "--reasoning"
+          cfg.reasoning
+        ])
+        ++ (lib.optionals (cfg.speculative.type != null) [
+          "--spec-type"
+          cfg.speculative.type
+        ])
+        ++ (lib.optionals (cfg.speculative.draftModelPath != null) [
+          "--model-draft"
+          cfg.speculative.draftModelPath
         ]);
 
         # Manual start/stop - do not auto-start on login or boot

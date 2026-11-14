@@ -26,14 +26,26 @@ home-manager.users.${primaryUser}.services.llama-server = {
   cacheTypeK = "q8_0";
   cacheTypeV = "q8_0";
   threadsBatch = 12;
+  parallel = 1;
+  reasoning = "off";
+  speculative = {
+    type = "draft-dflash";
+    draftModelPath = "/Users/${primaryUser}/.cache/llama-server/draft-model.gguf";
+  };
 };
 ```
+
+Use the speculative options only when the draft GGUF matches the selected model.
+For example, Qwen dflash draft files should be paired with the same Qwen release
+and quantization family.
 
 The module installs `pkgs.llama-cpp` and creates a user launchd agent with
 tokenized `ProgramArguments`. It passes the configured values to
 `llama-server` as `--model`, `--alias`, `--host`, `--port`, `--ctx-size`,
 `--flash-attn`, `--cache-type-k`, `--cache-type-v`, and `--threads-batch`.
-Set `gpuLayers` only after testing the selected model and hardware.
+Optional tuning flags include `--parallel`, `--reasoning`, `--spec-type`,
+`--model-draft`, and `--n-gpu-layers`. Set `gpuLayers` only after testing the
+selected model and hardware.
 
 `modelPath` and `alias` are required when `enable = true`. Use a fixed local
 GGUF file and record its checksum outside this public repository. Do not use
@@ -72,8 +84,12 @@ example, streaming notes, and the `alias`/model-name mapping.
 
 Before switching a real host, dry-build it from its private configuration.
 After starting the agent, confirm the local API, model alias, logs, and one
-process. Test cold-cache recovery separately; a fixed local model should not
-download during startup.
+process. For single-user agent work, start with `parallel = 1`; the llama.cpp
+default may expose multiple slots, which costs memory and can reduce per-request
+throughput. For reasoning models used through chat clients, set
+`reasoning = "off"` when the client expects final text in `message.content`.
+Test cold-cache recovery separately; a fixed local model should not download
+during startup.
 
 To disable the server, set `enable = false` or remove the profile import, then
 rebuild the host. Nix rollback restores the launchd wiring, but does not delete

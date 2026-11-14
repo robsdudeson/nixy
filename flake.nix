@@ -244,6 +244,12 @@
                   enable = true;
                   modelPath = "/Users/example/.cache/llama-server/example.gguf";
                   alias = "example-model";
+                  parallel = 1;
+                  reasoning = "off";
+                  speculative = {
+                    type = "draft-dflash";
+                    draftModelPath = "/Users/example/.cache/llama-server/example-draft.gguf";
+                  };
                 };
               }
             ];
